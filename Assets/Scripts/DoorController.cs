@@ -75,7 +75,7 @@ public class DoorController : MonoBehaviour
             return signedAngle;
 
         Vector3 localInteractorPosition = doorPivot.InverseTransformPoint(interactor.position);
-        return localInteractorPosition.z >= 0f ? -signedAngle : signedAngle;
+        return localInteractorPosition.z >= 0f ? signedAngle : -signedAngle;
     }
 
     private float GetCurrentAngle()

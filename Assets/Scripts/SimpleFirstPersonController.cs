@@ -1,4 +1,3 @@
-using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
@@ -28,6 +27,7 @@ public class SimpleFirstPersonController : MonoBehaviour
     [SerializeField] private float interactDistance = 3f;
     [SerializeField] private LayerMask interactMask = ~0;
     [SerializeField] private float interactCastRadius = 0.08f;
+    [SerializeField] private bool logInteractDebug = true;
 
     [Header("Crosshair")]
     [SerializeField] private bool showCrosshair = true;
@@ -40,6 +40,7 @@ public class SimpleFirstPersonController : MonoBehaviour
     private Canvas crosshairCanvas;
     private Image horizontalCrosshair;
     private Image verticalCrosshair;
+    private readonly RaycastHit[] interactHitBuffer = new RaycastHit[16];
     private float verticalVelocity;
     private float pitch;
 
@@ -144,6 +145,7 @@ public class SimpleFirstPersonController : MonoBehaviour
 
         Ray ray = new Ray(playerCamera.transform.position, playerCamera.transform.forward);
         IInteractable nextInteractable = FindInteractableTarget(ray);
+        bool interactPressed = Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame;
 
         if (!ReferenceEquals(nextInteractable, currentInteractable))
         {
@@ -152,11 +154,10 @@ public class SimpleFirstPersonController : MonoBehaviour
             currentInteractable?.SetFocused(true);
         }
 
-        if (currentInteractable != null &&
-            Keyboard.current != null &&
-            Keyboard.current.eKey.wasPressedThisFrame)
+        if (interactPressed)
         {
-            currentInteractable.Interact(transform);
+            LogInteractDebug(ray);
+            currentInteractable?.Interact(transform);
         }
     }
 
@@ -181,30 +182,10 @@ public class SimpleFirstPersonController : MonoBehaviour
 
     private IInteractable FindInteractableTarget(Ray ray)
     {
-        IInteractable overlappingInteractable = FindOverlappingInteractable(ray);
-        if (overlappingInteractable != null)
-            return overlappingInteractable;
+        if (TryGetDirectInteractable(ray, out IInteractable interactable))
+            return interactable;
 
-        RaycastHit[] hits = Physics.RaycastAll(ray, interactDistance, interactMask, QueryTriggerInteraction.Collide);
-
-        if (hits.Length == 0 && interactCastRadius > 0f)
-        {
-            hits = Physics.SphereCastAll(ray, interactCastRadius, interactDistance, interactMask, QueryTriggerInteraction.Collide);
-        }
-
-        if (hits.Length == 0)
-            return null;
-
-        Array.Sort(hits, (left, right) => left.distance.CompareTo(right.distance));
-
-        for (int i = 0; i < hits.Length; i++)
-        {
-            IInteractable interactable = FindInteractable(hits[i].collider);
-            if (interactable != null)
-                return interactable;
-        }
-
-        return null;
+        return FindOverlappingInteractable(ray);
     }
 
     private IInteractable FindOverlappingInteractable(Ray ray)
@@ -212,7 +193,9 @@ public class SimpleFirstPersonController : MonoBehaviour
         if (interactCastRadius <= 0f)
             return null;
 
-        Collider[] colliders = Physics.OverlapSphere(ray.origin, interactCastRadius, interactMask, QueryTriggerInteraction.Collide);
+        float closeProbeDistance = Mathf.Max(interactCastRadius * 3f, 0.2f);
+        Vector3 capsuleEnd = ray.origin + ray.direction * closeProbeDistance;
+        Collider[] colliders = Physics.OverlapCapsule(ray.origin, capsuleEnd, interactCastRadius, interactMask, QueryTriggerInteraction.Collide);
         IInteractable bestInteractable = null;
         float bestScore = float.NegativeInfinity;
 
@@ -238,7 +221,14 @@ public class SimpleFirstPersonController : MonoBehaviour
             if (alignment <= 0.35f)
                 continue;
 
-            float score = alignment / sqrDistance;
+            if (!HasLineOfSight(ray.origin, targetPoint, interactable))
+                continue;
+
+            float forwardDistance = Vector3.Dot(ray.direction, toTarget);
+            if (forwardDistance < -interactCastRadius || forwardDistance > closeProbeDistance + interactCastRadius)
+                continue;
+
+            float score = alignment / Mathf.Max(0.01f, sqrDistance);
             if (score > bestScore)
             {
                 bestScore = score;
@@ -247,6 +237,141 @@ public class SimpleFirstPersonController : MonoBehaviour
         }
 
         return bestInteractable;
+    }
+
+    private bool TryGetDirectInteractable(Ray ray, out IInteractable interactable)
+    {
+        interactable = null;
+
+        if (TryGetClosestNonSelfRayHit(ray, interactDistance, out RaycastHit hit))
+        {
+            interactable = FindInteractable(hit.collider);
+            return interactable != null;
+        }
+
+        if (interactCastRadius <= 0f)
+            return false;
+
+        if (!TryGetClosestNonSelfSphereHit(ray, interactDistance, out hit))
+            return false;
+
+        interactable = FindInteractable(hit.collider);
+        return interactable != null;
+    }
+
+    private bool HasLineOfSight(Vector3 origin, Vector3 targetPoint, IInteractable interactable)
+    {
+        Vector3 direction = targetPoint - origin;
+        float distance = direction.magnitude;
+
+        if (distance <= 0.0001f)
+            return true;
+
+        Ray ray = new Ray(origin, direction / distance);
+        if (!TryGetClosestNonSelfRayHit(ray, distance, out RaycastHit hit))
+            return true;
+
+        return ReferenceEquals(FindInteractable(hit.collider), interactable);
+    }
+
+    private bool TryGetClosestNonSelfRayHit(Ray ray, float maxDistance, out RaycastHit closestHit)
+    {
+        int hitCount = Physics.RaycastNonAlloc(ray, interactHitBuffer, maxDistance, interactMask, QueryTriggerInteraction.Collide);
+        return TryGetClosestNonSelfHit(hitCount, out closestHit);
+    }
+
+    private bool TryGetClosestNonSelfSphereHit(Ray ray, float maxDistance, out RaycastHit closestHit)
+    {
+        int hitCount = Physics.SphereCastNonAlloc(ray, interactCastRadius, interactHitBuffer, maxDistance, interactMask, QueryTriggerInteraction.Collide);
+        return TryGetClosestNonSelfHit(hitCount, out closestHit);
+    }
+
+    private bool TryGetClosestNonSelfHit(int hitCount, out RaycastHit closestHit)
+    {
+        closestHit = default;
+        float closestDistance = float.PositiveInfinity;
+        bool foundHit = false;
+
+        for (int i = 0; i < hitCount; i++)
+        {
+            RaycastHit candidate = interactHitBuffer[i];
+
+            if (candidate.collider == null || IsSelfCollider(candidate.collider))
+                continue;
+
+            if (candidate.distance >= closestDistance)
+                continue;
+
+            closestDistance = candidate.distance;
+            closestHit = candidate;
+            foundHit = true;
+        }
+
+        return foundHit;
+    }
+
+    private bool IsSelfCollider(Collider collider)
+    {
+        return collider != null && collider.transform.IsChildOf(transform);
+    }
+
+    private void LogInteractDebug(Ray ray)
+    {
+        if (!logInteractDebug)
+            return;
+
+        string directHitDescription = DescribeRaycastHit(ray, interactCastRadius <= 0f);
+        string wideHitDescription = interactCastRadius > 0f
+            ? DescribeSphereCastHit(ray)
+            : "disabled";
+
+        Debug.Log(
+            $"Interact debug. Direct ray: {directHitDescription}. Wide cast: {wideHitDescription}. " +
+            $"Focused interactable: {DescribeInteractable(currentInteractable)}.",
+            this);
+    }
+
+    private string DescribeRaycastHit(Ray ray, bool appendRadiusInfo)
+    {
+        if (!Physics.Raycast(ray, out RaycastHit hit, interactDistance, interactMask, QueryTriggerInteraction.Collide))
+            return "no hit";
+
+        string description = DescribeHit(hit);
+        if (!appendRadiusInfo)
+            return description;
+
+        return $"{description} (sphere cast disabled)";
+    }
+
+    private string DescribeSphereCastHit(Ray ray)
+    {
+        if (!Physics.SphereCast(ray, interactCastRadius, out RaycastHit hit, interactDistance, interactMask, QueryTriggerInteraction.Collide))
+            return "no hit";
+
+        return DescribeHit(hit);
+    }
+
+    private static string DescribeHit(RaycastHit hit)
+    {
+        IInteractable interactable = FindInteractable(hit.collider);
+        string layerName = LayerMask.LayerToName(hit.collider.gameObject.layer);
+        if (string.IsNullOrEmpty(layerName))
+            layerName = hit.collider.gameObject.layer.ToString();
+
+        return $"{hit.collider.name} at {hit.distance:0.00}m " +
+               $"(layer {layerName}, trigger {hit.collider.isTrigger}, " +
+               $"interactable {DescribeInteractable(interactable)})";
+    }
+
+    private static string DescribeInteractable(IInteractable interactable)
+    {
+        if (interactable == null)
+            return "none";
+
+        if (interactable is Component component)
+            return component.name;
+
+        return interactable.GetType().Name;
     }
 
     private void EnsureCrosshair()
