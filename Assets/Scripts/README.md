@@ -10,6 +10,7 @@
 - `InteractableOutline.cs`: Creates and toggles the outline mesh copies used to visually highlight the currently focused interactable.
 - `InteractableOutline.shader`: Renders the subtle white silhouette outline used by `InteractableOutline.cs`.
 - `PickupInteractable.cs`: Makes an object reusable as a pickup, disables its collisions while held, and presents it in the held-item camera.
+- `PutDownInteractable.cs`: Marks a spot as a valid placement target for a held pickup and shows an outline-only preview of the expected item while it is focused.
 
 ## Notes
 

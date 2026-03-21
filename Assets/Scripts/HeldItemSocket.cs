@@ -24,6 +24,7 @@ public class HeldItemSocket : MonoBehaviour
     private int heldItemLayer = -1;
 
     public bool IsHoldingItem => heldItem != null;
+    public PickupInteractable HeldItem => heldItem;
 
     private void Awake()
     {
@@ -74,6 +75,19 @@ public class HeldItemSocket : MonoBehaviour
             return false;
 
         heldItem = item;
+        return true;
+    }
+
+    public bool TryPlaceHeldItem(Transform targetTransform)
+    {
+        if (heldItem == null || targetTransform == null)
+            return false;
+
+        PickupInteractable itemToPlace = heldItem;
+        if (!itemToPlace.PlaceAt(targetTransform))
+            return false;
+
+        heldItem = null;
         return true;
     }
 
