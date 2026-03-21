@@ -21,7 +21,7 @@ public class PickupInteractable : MonoBehaviour, IInteractable
     [SerializeField] private string placementId;
 
     [Header("Disappear Behavior")]
-    [SerializeField] private DisappearBehavior DisappearObject;
+    public Action MakeObjectDisappear;
 
     private Collider[] colliders;
     private Rigidbody[] rigidbodies;
@@ -104,7 +104,8 @@ public class PickupInteractable : MonoBehaviour, IInteractable
             return;
 
         }
-        PlayerManager.PlayerManagerInstance._disappearComponent = DisappearObject;
+        MakeObjectDisappear?.Invoke();
+        //PlayerManager.PlayerManagerInstance._disappearComponent = DisappearObject;
         if (socket.TryHold(this))
             outline?.SetOutlined(false);
     }

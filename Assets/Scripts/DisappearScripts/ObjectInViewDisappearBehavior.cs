@@ -1,12 +1,8 @@
 using UnityEngine;
 
-public class DisappearBehavior : MonoBehaviour
+public class ObjectInViewDisappearBehavior : BaseDisappearBehavior
 {
-    public bool inView;
-
-    public Renderer disappearRenderer;
-    public GameObject ObjectToAppear;
-    public void PerformDisappear(Plane[] cameraPlanes)
+    public override void PerformDisappear(Plane[] cameraPlanes)
     {
         if(inView)
         {

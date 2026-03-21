@@ -86,7 +86,6 @@ public class PutDownInteractable : MonoBehaviour, IInteractable
             return;
 
         cachedSocket = socket;
-        PlayerManager.PlayerManagerInstance._disappearComponent = null;
         PickupInteractable heldItem = socket.HeldItem;
         if (!CanAccept(heldItem))
             return;
