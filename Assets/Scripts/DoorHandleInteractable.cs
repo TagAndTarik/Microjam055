@@ -6,6 +6,7 @@ public class DoorHandleInteractable : MonoBehaviour, IInteractable
 {
     [SerializeField] private DoorController doorController;
     [SerializeField] private InteractableOutline outline;
+    [SerializeField, TextArea] private string hoverMessage;
     [SerializeField] private float turnAngle = 30f;
     [SerializeField] private float turnDuration = 0.12f;
     [SerializeField] private Vector3 localTurnAxis = Vector3.forward;
@@ -27,6 +28,11 @@ public class DoorHandleInteractable : MonoBehaviour, IInteractable
     public void SetFocused(bool focused)
     {
         outline?.SetOutlined(focused);
+    }
+
+    public string GetHoverMessage()
+    {
+        return hoverMessage;
     }
 
     public void Interact(Transform interactor)

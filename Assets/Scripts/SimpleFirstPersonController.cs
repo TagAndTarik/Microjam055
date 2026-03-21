@@ -8,6 +8,7 @@ public class SimpleFirstPersonController : MonoBehaviour
     private const string CrosshairCanvasName = "Runtime Crosshair";
     private const string HorizontalCrosshairName = "Horizontal";
     private const string VerticalCrosshairName = "Vertical";
+    private const string HoverPromptName = "Hover Prompt";
 
     [Header("References")]
     [SerializeField] private Transform cameraPivot;
@@ -35,11 +36,19 @@ public class SimpleFirstPersonController : MonoBehaviour
     [SerializeField] private float crosshairThickness = 2f;
     [SerializeField] private Color crosshairColor = new Color(1f, 1f, 1f, 0.9f);
 
+    [Header("Hover Prompt")]
+    [SerializeField] private bool showHoverPrompt = true;
+    [SerializeField] private float hoverPromptOffsetY = -28f;
+    [SerializeField] private int hoverPromptFontSize = 18;
+    [SerializeField] private Color hoverPromptColor = new Color(1f, 1f, 1f, 0.95f);
+    [SerializeField] private Vector2 hoverPromptSize = new Vector2(320f, 44f);
+
     private CharacterController controller;
     private IInteractable currentInteractable;
     private Canvas crosshairCanvas;
     private Image horizontalCrosshair;
     private Image verticalCrosshair;
+    private Text hoverPrompt;
     private readonly RaycastHit[] interactHitBuffer = new RaycastHit[16];
     private float verticalVelocity;
     private float pitch;
@@ -87,6 +96,9 @@ public class SimpleFirstPersonController : MonoBehaviour
         interactCastRadius = Mathf.Max(0f, interactCastRadius);
         crosshairSize = Mathf.Max(1f, crosshairSize);
         crosshairThickness = Mathf.Max(1f, crosshairThickness);
+        hoverPromptFontSize = Mathf.Max(1, hoverPromptFontSize);
+        hoverPromptSize.x = Mathf.Max(1f, hoverPromptSize.x);
+        hoverPromptSize.y = Mathf.Max(1f, hoverPromptSize.y);
 
         ApplyCrosshairStyle();
         SetCrosshairVisible(showCrosshair);
@@ -154,10 +166,13 @@ public class SimpleFirstPersonController : MonoBehaviour
             currentInteractable?.SetFocused(true);
         }
 
+        UpdateHoverPrompt();
+
         if (interactPressed)
         {
             LogInteractDebug(ray);
             currentInteractable?.Interact(transform);
+            UpdateHoverPrompt();
         }
     }
 
@@ -165,6 +180,7 @@ public class SimpleFirstPersonController : MonoBehaviour
     {
         currentInteractable?.SetFocused(false);
         currentInteractable = null;
+        UpdateHoverPrompt();
     }
 
     private static IInteractable FindInteractable(Collider hitCollider)
@@ -417,11 +433,19 @@ public class SimpleFirstPersonController : MonoBehaviour
                 ? existingVertical.GetComponent<Image>()
                 : CreateCrosshairLine(VerticalCrosshairName, crosshairCanvas.transform);
         }
+
+        if (hoverPrompt == null)
+        {
+            Transform existingPrompt = crosshairCanvas.transform.Find(HoverPromptName);
+            hoverPrompt = existingPrompt != null
+                ? existingPrompt.GetComponent<Text>()
+                : CreateHoverPrompt(HoverPromptName, crosshairCanvas.transform);
+        }
     }
 
     private void ApplyCrosshairStyle()
     {
-        if (crosshairCanvas == null || horizontalCrosshair == null || verticalCrosshair == null)
+        if (crosshairCanvas == null || horizontalCrosshair == null || verticalCrosshair == null || hoverPrompt == null)
             return;
 
         RectTransform horizontalRect = (RectTransform)horizontalCrosshair.transform;
@@ -434,6 +458,14 @@ public class SimpleFirstPersonController : MonoBehaviour
 
         horizontalCrosshair.color = crosshairColor;
         verticalCrosshair.color = crosshairColor;
+
+        RectTransform promptRect = (RectTransform)hoverPrompt.transform;
+        promptRect.sizeDelta = hoverPromptSize;
+        promptRect.anchoredPosition = new Vector2(0f, hoverPromptOffsetY);
+
+        hoverPrompt.fontSize = Mathf.Max(1, hoverPromptFontSize);
+        hoverPrompt.color = hoverPromptColor;
+        hoverPrompt.enabled = showHoverPrompt && !string.IsNullOrWhiteSpace(hoverPrompt.text);
     }
 
     private void SetCrosshairVisible(bool isVisible)
@@ -455,5 +487,38 @@ public class SimpleFirstPersonController : MonoBehaviour
         Image image = lineObject.GetComponent<Image>();
         image.raycastTarget = false;
         return image;
+    }
+
+    private void UpdateHoverPrompt()
+    {
+        if (hoverPrompt == null)
+            return;
+
+        string hoverMessage = showHoverPrompt && currentInteractable != null
+            ? currentInteractable.GetHoverMessage()
+            : string.Empty;
+
+        hoverPrompt.text = string.IsNullOrWhiteSpace(hoverMessage) ? string.Empty : hoverMessage;
+        hoverPrompt.enabled = showHoverPrompt && !string.IsNullOrWhiteSpace(hoverPrompt.text);
+    }
+
+    private static Text CreateHoverPrompt(string objectName, Transform parent)
+    {
+        GameObject promptObject = new GameObject(objectName, typeof(Text));
+        promptObject.transform.SetParent(parent, false);
+
+        RectTransform rectTransform = promptObject.GetComponent<RectTransform>();
+        rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+        rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+        rectTransform.pivot = new Vector2(0.5f, 0.5f);
+
+        Text text = promptObject.GetComponent<Text>();
+        text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        text.alignment = TextAnchor.UpperCenter;
+        text.horizontalOverflow = HorizontalWrapMode.Wrap;
+        text.verticalOverflow = VerticalWrapMode.Overflow;
+        text.raycastTarget = false;
+        text.text = string.Empty;
+        return text;
     }
 }

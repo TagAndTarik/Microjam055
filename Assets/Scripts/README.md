@@ -13,4 +13,6 @@
 
 ## Notes
 
+- Interactables can now expose an inspector `hoverMessage` override, which the player controller shows below the crosshair while that object is focused.
+
 

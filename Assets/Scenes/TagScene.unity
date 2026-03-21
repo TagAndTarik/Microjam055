@@ -567,11 +567,6 @@ PrefabInstance:
       insertIndex: -1
       addedObject: {fileID: 1479838825}
   m_SourcePrefab: {fileID: 100100000, guid: 138d0852e3d6a79458e885febb13bb03, type: 3}
---- !u!1 &1479838826 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 1764352841169816573, guid: 138d0852e3d6a79458e885febb13bb03, type: 3}
-  m_PrefabInstance: {fileID: 1479838823}
-  m_PrefabAsset: {fileID: 0}
 --- !u!114 &1479838824
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -598,10 +593,16 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PickupInteractable
   outline: {fileID: 1479838824}
+  hoverMessage: pee pee poo poo
   heldEulerAngles: {x: 12, y: -30, z: 0}
   heldPositionOffset: {x: 0, y: 0, z: 0}
   heldMaxSize: 0.45
   disableShadowsWhileHeld: 1
+--- !u!1 &1479838826 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 1764352841169816573, guid: 138d0852e3d6a79458e885febb13bb03, type: 3}
+  m_PrefabInstance: {fileID: 1479838823}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &1918617600
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -683,6 +684,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 4528541580636494423, guid: 38231e0d8806baa41bdf9179390874e5, type: 3}
+      propertyPath: gravity
+      value: -5
+      objectReference: {fileID: 0}
     - target: {fileID: 6438346792231240245, guid: 38231e0d8806baa41bdf9179390874e5, type: 3}
       propertyPath: m_Name
       value: Player

@@ -6,6 +6,7 @@ using UnityEngine.Rendering;
 public class PickupInteractable : MonoBehaviour, IInteractable
 {
     [SerializeField] private InteractableOutline outline;
+    [SerializeField, TextArea] private string hoverMessage;
     [SerializeField] private Vector3 heldEulerAngles = new Vector3(12f, -30f, 0f);
     [SerializeField] private Vector3 heldPositionOffset = Vector3.zero;
     [SerializeField] private float heldMaxSize = 0.45f;
@@ -42,6 +43,11 @@ public class PickupInteractable : MonoBehaviour, IInteractable
     public void SetFocused(bool focused)
     {
         outline?.SetOutlined(focused && !isHeld);
+    }
+
+    public string GetHoverMessage()
+    {
+        return isHeld ? string.Empty : hoverMessage;
     }
 
     public void Interact(Transform interactor)
