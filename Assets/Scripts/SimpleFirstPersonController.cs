@@ -18,7 +18,12 @@ public class SimpleFirstPersonController : MonoBehaviour
     [SerializeField] private float maxLookAngle = 80f;
     [SerializeField] private float cameraNearClipPlane = 0.03f;
 
+    [Header("Interaction")]
+    [SerializeField] private float interactDistance = 3f;
+    [SerializeField] private LayerMask interactMask = ~0;
+
     private CharacterController controller;
+    private IInteractable currentInteractable;
     private float verticalVelocity;
     private float pitch;
 
@@ -38,7 +43,13 @@ public class SimpleFirstPersonController : MonoBehaviour
     private void Update()
     {
         Look();
+        UpdateInteraction();
         Move();
+    }
+
+    private void OnDisable()
+    {
+        ClearCurrentInteractable();
     }
 
     private void Look()
@@ -85,5 +96,50 @@ public class SimpleFirstPersonController : MonoBehaviour
         move.y = verticalVelocity;
 
         controller.Move(move * Time.deltaTime);
+    }
+
+    private void UpdateInteraction()
+    {
+        if (playerCamera == null)
+            return;
+
+        IInteractable nextInteractable = null;
+        Ray ray = new Ray(playerCamera.transform.position, playerCamera.transform.forward);
+
+        if (Physics.Raycast(ray, out RaycastHit hit, interactDistance, interactMask, QueryTriggerInteraction.Collide))
+            nextInteractable = FindInteractable(hit.collider);
+
+        if (!ReferenceEquals(nextInteractable, currentInteractable))
+        {
+            currentInteractable?.SetFocused(false);
+            currentInteractable = nextInteractable;
+            currentInteractable?.SetFocused(true);
+        }
+
+        if (currentInteractable != null &&
+            Keyboard.current != null &&
+            Keyboard.current.eKey.wasPressedThisFrame)
+        {
+            currentInteractable.Interact(transform);
+        }
+    }
+
+    private void ClearCurrentInteractable()
+    {
+        currentInteractable?.SetFocused(false);
+        currentInteractable = null;
+    }
+
+    private static IInteractable FindInteractable(Collider hitCollider)
+    {
+        MonoBehaviour[] behaviours = hitCollider.GetComponentsInParent<MonoBehaviour>(true);
+
+        for (int i = 0; i < behaviours.Length; i++)
+        {
+            if (behaviours[i] is IInteractable interactable)
+                return interactable;
+        }
+
+        return null;
     }
 }
