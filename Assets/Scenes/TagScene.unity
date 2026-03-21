@@ -119,6 +119,46 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!1 &18600174 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 3609028012608208792, guid: 7bb52cc09c8c76e43a75786dccaf3fa4, type: 3}
+  m_PrefabInstance: {fileID: 666680867}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &18600176
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 18600174}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 74d3d41ede0c886429313a646d8183d6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DisappearBehavior
+  inView: 0
+  disappearRenderer: {fileID: 1632076476}
+--- !u!65 &18600177
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 18600174}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 9.952078, y: 5.2788744, z: 8.2261}
+  m_Center: {x: 0.3044739, y: 2.1394248, z: 0.6285005}
 --- !u!1 &194427387
 GameObject:
   m_ObjectHideFlags: 0
@@ -370,6 +410,14 @@ PrefabInstance:
       propertyPath: m_Name
       value: Testing Table
       objectReference: {fileID: 0}
+    - target: {fileID: 3609028012608208792, guid: 7bb52cc09c8c76e43a75786dccaf3fa4, type: 3}
+      propertyPath: m_Layer
+      value: 7
+      objectReference: {fileID: 0}
+    - target: {fileID: 3609028012608208792, guid: 7bb52cc09c8c76e43a75786dccaf3fa4, type: 3}
+      propertyPath: m_TagString
+      value: Wacky
+      objectReference: {fileID: 0}
     - target: {fileID: 4133749718763332898, guid: 7bb52cc09c8c76e43a75786dccaf3fa4, type: 3}
       propertyPath: m_LocalPosition.x
       value: 2
@@ -410,10 +458,20 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 7396622579569736765, guid: 7bb52cc09c8c76e43a75786dccaf3fa4, type: 3}
+      propertyPath: m_Layer
+      value: 7
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 3609028012608208792, guid: 7bb52cc09c8c76e43a75786dccaf3fa4, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 18600176}
+    - targetCorrespondingSourceObject: {fileID: 3609028012608208792, guid: 7bb52cc09c8c76e43a75786dccaf3fa4, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 18600177}
   m_SourcePrefab: {fileID: 100100000, guid: 7bb52cc09c8c76e43a75786dccaf3fa4, type: 3}
 --- !u!1 &832575517
 GameObject:
@@ -680,6 +738,12 @@ MonoBehaviour:
   hoverMessageFontSize: 18
   hoverMessageColor: {r: 1, g: 1, b: 1, a: 0.95}
   interactionColliderPadding: {x: 0.08, y: 0.08, z: 0.08}
+  previewScale: 0.85
+--- !u!23 &1632076476 stripped
+MeshRenderer:
+  m_CorrespondingSourceObject: {fileID: 3059851526019388136, guid: 7bb52cc09c8c76e43a75786dccaf3fa4, type: 3}
+  m_PrefabInstance: {fileID: 666680867}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &1918617600
 PrefabInstance:
   m_ObjectHideFlags: 0

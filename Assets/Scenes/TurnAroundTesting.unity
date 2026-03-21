@@ -520,6 +520,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 74d3d41ede0c886429313a646d8183d6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DisappearBehavior
+  inView: 0
+  disappearRenderer: {fileID: 1447519898}
 --- !u!1 &1203150727
 GameObject:
   m_ObjectHideFlags: 0
@@ -552,6 +554,11 @@ Transform:
   - {fileID: 194427388}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!23 &1447519898 stripped
+MeshRenderer:
+  m_CorrespondingSourceObject: {fileID: 3059851526019388136, guid: 7bb52cc09c8c76e43a75786dccaf3fa4, type: 3}
+  m_PrefabInstance: {fileID: 666680867}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &1479838823
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -657,6 +664,7 @@ MonoBehaviour:
   heldPositionOffset: {x: 0, y: 0, z: 0}
   heldMaxSize: 0.45
   disableShadowsWhileHeld: 1
+  placementId: 
 --- !u!1 &1479838826 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 1764352841169816573, guid: 138d0852e3d6a79458e885febb13bb03, type: 3}
