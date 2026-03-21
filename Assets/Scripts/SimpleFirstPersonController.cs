@@ -9,8 +9,11 @@ public class SimpleFirstPersonController : MonoBehaviour
     private const string HorizontalCrosshairName = "Horizontal";
     private const string VerticalCrosshairName = "Vertical";
     private const string HoverPromptName = "Hover Prompt";
+    private const string PlayerMessageName = "Player Message";
     private const int DefaultHoverPromptFontSize = 18;
+    private const int DefaultPlayerMessageFontSize = 22;
     private static readonly Color DefaultHoverPromptColor = new Color(1f, 1f, 1f, 0.95f);
+    private static readonly Color DefaultPlayerMessageColor = new Color(1f, 1f, 1f, 0.96f);
 
     [Header("References")]
     [SerializeField] private Transform cameraPivot;
@@ -44,16 +47,27 @@ public class SimpleFirstPersonController : MonoBehaviour
     [SerializeField] private float hoverPromptOffsetY = -28f;
     [SerializeField] private Vector2 hoverPromptSize = new Vector2(320f, 44f);
 
+    [Header("Player Message")]
+    [SerializeField] private bool showPlayerMessages = true;
+    [SerializeField] private float defaultPlayerMessageDuration = 4.5f;
+    [SerializeField] private float playerMessageOffsetY = -74f;
+    [SerializeField] private Vector2 playerMessageSize = new Vector2(440f, 72f);
+    [SerializeField] private int playerMessageFontSize = DefaultPlayerMessageFontSize;
+    [SerializeField] private Color playerMessageColor = DefaultPlayerMessageColor;
+
     private CharacterController controller;
     private IInteractable currentInteractable;
     private Canvas crosshairCanvas;
     private Image horizontalCrosshair;
     private Image verticalCrosshair;
     private Text hoverPrompt;
+    private Text playerMessage;
     private Font defaultHoverPromptFont;
     private readonly RaycastHit[] interactHitBuffer = new RaycastHit[16];
     private float verticalVelocity;
     private float pitch;
+    private float playerMessageHideTime;
+    private string activePlayerMessage = string.Empty;
 
     private void Awake()
     {
@@ -83,6 +97,7 @@ public class SimpleFirstPersonController : MonoBehaviour
     {
         Look();
         UpdateInteraction();
+        UpdatePlayerMessage();
         Move();
     }
 
@@ -100,9 +115,23 @@ public class SimpleFirstPersonController : MonoBehaviour
         crosshairThickness = Mathf.Max(1f, crosshairThickness);
         hoverPromptSize.x = Mathf.Max(1f, hoverPromptSize.x);
         hoverPromptSize.y = Mathf.Max(1f, hoverPromptSize.y);
+        playerMessageSize.x = Mathf.Max(1f, playerMessageSize.x);
+        playerMessageSize.y = Mathf.Max(1f, playerMessageSize.y);
+        playerMessageFontSize = Mathf.Max(1, playerMessageFontSize);
+        defaultPlayerMessageDuration = Mathf.Max(0.1f, defaultPlayerMessageDuration);
 
         ApplyCrosshairStyle();
         SetCrosshairVisible(showCrosshair);
+    }
+
+    public void ShowPlayerMessage(string message, float duration = -1f)
+    {
+        EnsureCrosshair();
+        ApplyCrosshairStyle();
+
+        activePlayerMessage = string.IsNullOrWhiteSpace(message) ? string.Empty : message.Trim();
+        playerMessageHideTime = Time.unscaledTime + (duration > 0f ? duration : defaultPlayerMessageDuration);
+        RefreshPlayerMessage();
     }
 
     private void Look()
@@ -442,11 +471,19 @@ public class SimpleFirstPersonController : MonoBehaviour
                 ? existingPrompt.GetComponent<Text>()
                 : CreateHoverPrompt(HoverPromptName, crosshairCanvas.transform);
         }
+
+        if (playerMessage == null)
+        {
+            Transform existingPlayerMessage = crosshairCanvas.transform.Find(PlayerMessageName);
+            playerMessage = existingPlayerMessage != null
+                ? existingPlayerMessage.GetComponent<Text>()
+                : CreatePlayerMessage(PlayerMessageName, crosshairCanvas.transform);
+        }
     }
 
     private void ApplyCrosshairStyle()
     {
-        if (crosshairCanvas == null || horizontalCrosshair == null || verticalCrosshair == null || hoverPrompt == null)
+        if (crosshairCanvas == null || horizontalCrosshair == null || verticalCrosshair == null || hoverPrompt == null || playerMessage == null)
             return;
 
         RectTransform horizontalRect = (RectTransform)horizontalCrosshair.transform;
@@ -463,6 +500,13 @@ public class SimpleFirstPersonController : MonoBehaviour
         RectTransform promptRect = (RectTransform)hoverPrompt.transform;
         promptRect.sizeDelta = hoverPromptSize;
         promptRect.anchoredPosition = new Vector2(0f, hoverPromptOffsetY);
+
+        RectTransform playerMessageRect = (RectTransform)playerMessage.transform;
+        playerMessageRect.sizeDelta = playerMessageSize;
+        playerMessageRect.anchoredPosition = new Vector2(0f, playerMessageOffsetY);
+
+        playerMessage.fontSize = Mathf.Max(1, playerMessageFontSize);
+        playerMessage.color = playerMessageColor;
     }
 
     private void SetCrosshairVisible(bool isVisible)
@@ -511,7 +555,41 @@ public class SimpleFirstPersonController : MonoBehaviour
         hoverPrompt.enabled = showHoverPrompt && !string.IsNullOrWhiteSpace(hoverPrompt.text);
     }
 
+    private void UpdatePlayerMessage()
+    {
+        if (string.IsNullOrEmpty(activePlayerMessage))
+            return;
+
+        if (Time.unscaledTime < playerMessageHideTime)
+            return;
+
+        activePlayerMessage = string.Empty;
+        RefreshPlayerMessage();
+    }
+
+    private void RefreshPlayerMessage()
+    {
+        if (playerMessage == null)
+            return;
+
+        playerMessage.text = activePlayerMessage;
+        playerMessage.font = GetDefaultHoverPromptFont();
+        playerMessage.fontSize = Mathf.Max(1, playerMessageFontSize);
+        playerMessage.color = playerMessageColor;
+        playerMessage.enabled = showPlayerMessages && !string.IsNullOrWhiteSpace(activePlayerMessage);
+    }
+
     private Text CreateHoverPrompt(string objectName, Transform parent)
+    {
+        return CreatePromptText(objectName, parent, TextAnchor.UpperCenter);
+    }
+
+    private Text CreatePlayerMessage(string objectName, Transform parent)
+    {
+        return CreatePromptText(objectName, parent, TextAnchor.MiddleCenter);
+    }
+
+    private Text CreatePromptText(string objectName, Transform parent, TextAnchor alignment)
     {
         GameObject promptObject = new GameObject(objectName, typeof(Text));
         promptObject.transform.SetParent(parent, false);
@@ -523,11 +601,12 @@ public class SimpleFirstPersonController : MonoBehaviour
 
         Text text = promptObject.GetComponent<Text>();
         text.font = GetDefaultHoverPromptFont();
-        text.alignment = TextAnchor.UpperCenter;
+        text.alignment = alignment;
         text.horizontalOverflow = HorizontalWrapMode.Wrap;
         text.verticalOverflow = VerticalWrapMode.Overflow;
         text.raycastTarget = false;
         text.text = string.Empty;
+        text.enabled = false;
         return text;
     }
 
