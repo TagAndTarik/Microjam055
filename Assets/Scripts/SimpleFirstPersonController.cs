@@ -9,6 +9,8 @@ public class SimpleFirstPersonController : MonoBehaviour
     private const string HorizontalCrosshairName = "Horizontal";
     private const string VerticalCrosshairName = "Vertical";
     private const string HoverPromptName = "Hover Prompt";
+    private const int DefaultHoverPromptFontSize = 18;
+    private static readonly Color DefaultHoverPromptColor = new Color(1f, 1f, 1f, 0.95f);
 
     [Header("References")]
     [SerializeField] private Transform cameraPivot;
@@ -39,8 +41,6 @@ public class SimpleFirstPersonController : MonoBehaviour
     [Header("Hover Prompt")]
     [SerializeField] private bool showHoverPrompt = true;
     [SerializeField] private float hoverPromptOffsetY = -28f;
-    [SerializeField] private int hoverPromptFontSize = 18;
-    [SerializeField] private Color hoverPromptColor = new Color(1f, 1f, 1f, 0.95f);
     [SerializeField] private Vector2 hoverPromptSize = new Vector2(320f, 44f);
 
     private CharacterController controller;
@@ -49,6 +49,7 @@ public class SimpleFirstPersonController : MonoBehaviour
     private Image horizontalCrosshair;
     private Image verticalCrosshair;
     private Text hoverPrompt;
+    private Font defaultHoverPromptFont;
     private readonly RaycastHit[] interactHitBuffer = new RaycastHit[16];
     private float verticalVelocity;
     private float pitch;
@@ -96,7 +97,6 @@ public class SimpleFirstPersonController : MonoBehaviour
         interactCastRadius = Mathf.Max(0f, interactCastRadius);
         crosshairSize = Mathf.Max(1f, crosshairSize);
         crosshairThickness = Mathf.Max(1f, crosshairThickness);
-        hoverPromptFontSize = Mathf.Max(1, hoverPromptFontSize);
         hoverPromptSize.x = Mathf.Max(1f, hoverPromptSize.x);
         hoverPromptSize.y = Mathf.Max(1f, hoverPromptSize.y);
 
@@ -462,10 +462,6 @@ public class SimpleFirstPersonController : MonoBehaviour
         RectTransform promptRect = (RectTransform)hoverPrompt.transform;
         promptRect.sizeDelta = hoverPromptSize;
         promptRect.anchoredPosition = new Vector2(0f, hoverPromptOffsetY);
-
-        hoverPrompt.fontSize = Mathf.Max(1, hoverPromptFontSize);
-        hoverPrompt.color = hoverPromptColor;
-        hoverPrompt.enabled = showHoverPrompt && !string.IsNullOrWhiteSpace(hoverPrompt.text);
     }
 
     private void SetCrosshairVisible(bool isVisible)
@@ -494,15 +490,27 @@ public class SimpleFirstPersonController : MonoBehaviour
         if (hoverPrompt == null)
             return;
 
-        string hoverMessage = showHoverPrompt && currentInteractable != null
-            ? currentInteractable.GetHoverMessage()
-            : string.Empty;
+        Font font = GetDefaultHoverPromptFont();
+        int fontSize = DefaultHoverPromptFontSize;
+        Color color = DefaultHoverPromptColor;
+        string hoverMessage = string.Empty;
+
+        if (showHoverPrompt && currentInteractable != null)
+        {
+            hoverMessage = currentInteractable.GetHoverMessage();
+            font = currentInteractable.GetHoverMessageFont() ?? font;
+            fontSize = Mathf.Max(1, currentInteractable.GetHoverMessageFontSize());
+            color = currentInteractable.GetHoverMessageColor();
+        }
 
         hoverPrompt.text = string.IsNullOrWhiteSpace(hoverMessage) ? string.Empty : hoverMessage;
+        hoverPrompt.font = font;
+        hoverPrompt.fontSize = fontSize;
+        hoverPrompt.color = color;
         hoverPrompt.enabled = showHoverPrompt && !string.IsNullOrWhiteSpace(hoverPrompt.text);
     }
 
-    private static Text CreateHoverPrompt(string objectName, Transform parent)
+    private Text CreateHoverPrompt(string objectName, Transform parent)
     {
         GameObject promptObject = new GameObject(objectName, typeof(Text));
         promptObject.transform.SetParent(parent, false);
@@ -513,12 +521,20 @@ public class SimpleFirstPersonController : MonoBehaviour
         rectTransform.pivot = new Vector2(0.5f, 0.5f);
 
         Text text = promptObject.GetComponent<Text>();
-        text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        text.font = GetDefaultHoverPromptFont();
         text.alignment = TextAnchor.UpperCenter;
         text.horizontalOverflow = HorizontalWrapMode.Wrap;
         text.verticalOverflow = VerticalWrapMode.Overflow;
         text.raycastTarget = false;
         text.text = string.Empty;
         return text;
+    }
+
+    private Font GetDefaultHoverPromptFont()
+    {
+        if (defaultHoverPromptFont == null)
+            defaultHoverPromptFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+
+        return defaultHoverPromptFont;
     }
 }

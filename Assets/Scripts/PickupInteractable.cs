@@ -5,8 +5,14 @@ using UnityEngine.Rendering;
 [DisallowMultipleComponent]
 public class PickupInteractable : MonoBehaviour, IInteractable
 {
+    private static readonly Color DefaultHoverMessageColor = new Color(1f, 1f, 1f, 0.95f);
+    private const int DefaultHoverMessageFontSize = 18;
+
     [SerializeField] private InteractableOutline outline;
     [SerializeField, TextArea] private string hoverMessage;
+    [SerializeField] private Font hoverMessageFont;
+    [SerializeField] private int hoverMessageFontSize = 18;
+    [SerializeField] private Color hoverMessageColor = new Color(1f, 1f, 1f, 0.95f);
     [SerializeField] private Vector3 heldEulerAngles = new Vector3(12f, -30f, 0f);
     [SerializeField] private Vector3 heldPositionOffset = Vector3.zero;
     [SerializeField] private float heldMaxSize = 0.45f;
@@ -30,11 +36,17 @@ public class PickupInteractable : MonoBehaviour, IInteractable
 
         if (HasStaticObjectsInHierarchy())
             Debug.LogWarning($"{name} is marked static in its hierarchy. Pickup objects should not use static batching flags.", this);
+
+        if (hoverMessageFontSize <= 0)
+            hoverMessageFontSize = DefaultHoverMessageFontSize;
     }
 
     private void OnValidate()
     {
         heldMaxSize = Mathf.Max(0.05f, heldMaxSize);
+
+        if (hoverMessageFontSize <= 0)
+            hoverMessageFontSize = DefaultHoverMessageFontSize;
 
         if (outline == null)
             outline = GetComponent<InteractableOutline>();
@@ -48,6 +60,21 @@ public class PickupInteractable : MonoBehaviour, IInteractable
     public string GetHoverMessage()
     {
         return isHeld ? string.Empty : hoverMessage;
+    }
+
+    public Font GetHoverMessageFont()
+    {
+        return hoverMessageFont;
+    }
+
+    public int GetHoverMessageFontSize()
+    {
+        return hoverMessageFontSize > 0 ? hoverMessageFontSize : DefaultHoverMessageFontSize;
+    }
+
+    public Color GetHoverMessageColor()
+    {
+        return IsUnsetColor(hoverMessageColor) ? DefaultHoverMessageColor : hoverMessageColor;
     }
 
     public void Interact(Transform interactor)
@@ -184,5 +211,13 @@ public class PickupInteractable : MonoBehaviour, IInteractable
         }
 
         return false;
+    }
+
+    private static bool IsUnsetColor(Color color)
+    {
+        return Mathf.Approximately(color.r, 0f) &&
+               Mathf.Approximately(color.g, 0f) &&
+               Mathf.Approximately(color.b, 0f) &&
+               Mathf.Approximately(color.a, 0f);
     }
 }

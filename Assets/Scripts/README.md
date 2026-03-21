@@ -13,6 +13,6 @@
 
 ## Notes
 
-- Interactables can now expose an inspector `hoverMessage` override, which the player controller shows below the crosshair while that object is focused.
+- Interactables can now expose per-object hover prompt text, font, font size, and color, which the player controller shows below the crosshair while that object is focused.
 
 
