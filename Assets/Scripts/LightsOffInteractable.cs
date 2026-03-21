@@ -1,0 +1,219 @@
+using System;
+using UnityEngine;
+
+[DisallowMultipleComponent]
+public class LightsOffInteractable : MonoBehaviour, IInteractable
+{
+    private static readonly Color DefaultHoverMessageColor = new Color(1f, 1f, 1f, 0.95f);
+    private const int DefaultHoverMessageFontSize = 18;
+    private const float DefaultPostInteractMessageDuration = 4.5f;
+    private const string DefaultScaryChimesPrefabPath = "SFXObjects/ScaryChimesSFX";
+    private const string DefaultFrontDoorName = "Front Door";
+    private const string DefaultFrontDoorWallName = "Front Door Wall";
+
+    [SerializeField] private HouseManager houseManager;
+    [SerializeField] private InteractableOutline outline;
+    [SerializeField] private GameObject scaryChimesPrefab;
+    [SerializeField] private GameObject frontDoorObject;
+    [SerializeField] private GameObject frontDoorWallObject;
+    [SerializeField, TextArea] private string hoverMessage = "Sleep";
+    [SerializeField, TextArea] private string postInteractMessage = "My lamp is in the attic";
+    [SerializeField] private float postInteractMessageDuration = 4.5f;
+    [SerializeField] private Font hoverMessageFont;
+    [SerializeField] private int hoverMessageFontSize = 18;
+    [SerializeField] private Color hoverMessageColor = new Color(1f, 1f, 1f, 0.95f);
+
+    private bool hasTriggered;
+
+    private void Awake()
+    {
+        if (outline == null)
+            outline = GetComponent<InteractableOutline>();
+
+        if (hoverMessageFontSize <= 0)
+            hoverMessageFontSize = DefaultHoverMessageFontSize;
+
+        if (postInteractMessageDuration <= 0f)
+            postInteractMessageDuration = DefaultPostInteractMessageDuration;
+    }
+
+    private void OnValidate()
+    {
+        if (outline == null)
+            outline = GetComponent<InteractableOutline>();
+
+        if (hoverMessageFontSize <= 0)
+            hoverMessageFontSize = DefaultHoverMessageFontSize;
+
+        if (postInteractMessageDuration <= 0f)
+            postInteractMessageDuration = DefaultPostInteractMessageDuration;
+    }
+
+    public Font GetHoverMessageFont()
+    {
+        return hoverMessageFont;
+    }
+
+    public int GetHoverMessageFontSize()
+    {
+        return hoverMessageFontSize > 0 ? hoverMessageFontSize : DefaultHoverMessageFontSize;
+    }
+
+    public Color GetHoverMessageColor()
+    {
+        return IsUnsetColor(hoverMessageColor) ? DefaultHoverMessageColor : hoverMessageColor;
+    }
+
+    public string GetHoverMessage()
+    {
+        return hasTriggered ? string.Empty : hoverMessage;
+    }
+
+    public void SetFocused(bool focused)
+    {
+        outline?.SetOutlined(focused && !hasTriggered);
+    }
+
+    public void Interact(Transform interactor)
+    {
+        if (hasTriggered)
+            return;
+
+        HouseManager targetHouseManager = ResolveHouseManager();
+        if (targetHouseManager == null)
+            return;
+
+        targetHouseManager.TurnOffAllLights();
+        PlayScaryChimes();
+        ReplaceFrontDoorWithWall();
+        ShowPostInteractMessage(interactor);
+        hasTriggered = true;
+        outline?.SetOutlined(false);
+    }
+
+    private HouseManager ResolveHouseManager()
+    {
+        if (houseManager != null)
+            return houseManager;
+
+        if (HouseManager.HouseManagerInstance != null)
+        {
+            houseManager = HouseManager.HouseManagerInstance;
+            return houseManager;
+        }
+
+        houseManager = FindObjectOfType<HouseManager>();
+        return houseManager;
+    }
+
+    private void PlayScaryChimes()
+    {
+        GameObject prefabToSpawn = ResolveScaryChimesPrefab();
+        if (prefabToSpawn == null)
+            return;
+
+        Instantiate(prefabToSpawn, transform.position, Quaternion.identity);
+    }
+
+    private GameObject ResolveScaryChimesPrefab()
+    {
+        if (scaryChimesPrefab != null)
+            return scaryChimesPrefab;
+
+        scaryChimesPrefab = Resources.Load<GameObject>(DefaultScaryChimesPrefabPath);
+        return scaryChimesPrefab;
+    }
+
+    private void ShowPostInteractMessage(Transform interactor)
+    {
+        if (string.IsNullOrWhiteSpace(postInteractMessage))
+            return;
+
+        SimpleFirstPersonController controller = interactor != null
+            ? interactor.GetComponentInParent<SimpleFirstPersonController>()
+            : FindObjectOfType<SimpleFirstPersonController>();
+
+        if (controller == null)
+            return;
+
+        controller.ShowPlayerMessage(postInteractMessage, postInteractMessageDuration);
+    }
+
+    private void ReplaceFrontDoorWithWall()
+    {
+        GameObject targetFrontDoor = ResolveFrontDoorObject();
+        GameObject targetFrontDoorWall = ResolveFrontDoorWallObject();
+        if (targetFrontDoor == null || targetFrontDoorWall == null)
+            return;
+
+        DetachWallFromFrontDoor(targetFrontDoor, targetFrontDoorWall);
+        targetFrontDoorWall.SetActive(true);
+        targetFrontDoor.SetActive(false);
+    }
+
+    private static void DetachWallFromFrontDoor(GameObject targetFrontDoor, GameObject targetFrontDoorWall)
+    {
+        Transform wallTransform = targetFrontDoorWall.transform;
+        Transform frontDoorTransform = targetFrontDoor.transform;
+        if (!wallTransform.IsChildOf(frontDoorTransform))
+            return;
+
+        wallTransform.SetParent(frontDoorTransform.parent, true);
+    }
+
+    private GameObject ResolveFrontDoorObject()
+    {
+        if (frontDoorObject != null)
+            return frontDoorObject;
+
+        Transform[] sceneTransforms = FindObjectsOfType<Transform>();
+        for (int i = 0; i < sceneTransforms.Length; i++)
+        {
+            Transform candidate = sceneTransforms[i];
+            if (candidate == null)
+                continue;
+
+            if (string.Equals(candidate.name, DefaultFrontDoorName, StringComparison.OrdinalIgnoreCase))
+            {
+                frontDoorObject = candidate.gameObject;
+                return frontDoorObject;
+            }
+        }
+
+        return null;
+    }
+
+    private GameObject ResolveFrontDoorWallObject()
+    {
+        if (frontDoorWallObject != null)
+            return frontDoorWallObject;
+
+        Transform[] sceneTransforms = Resources.FindObjectsOfTypeAll<Transform>();
+        for (int i = 0; i < sceneTransforms.Length; i++)
+        {
+            Transform candidate = sceneTransforms[i];
+            if (candidate == null)
+                continue;
+
+            GameObject candidateObject = candidate.gameObject;
+            if (!candidateObject.scene.IsValid())
+                continue;
+
+            if (string.Equals(candidate.name, DefaultFrontDoorWallName, StringComparison.OrdinalIgnoreCase))
+            {
+                frontDoorWallObject = candidateObject;
+                return frontDoorWallObject;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IsUnsetColor(Color color)
+    {
+        return Mathf.Approximately(color.r, 0f) &&
+               Mathf.Approximately(color.g, 0f) &&
+               Mathf.Approximately(color.b, 0f) &&
+               Mathf.Approximately(color.a, 0f);
+    }
+}

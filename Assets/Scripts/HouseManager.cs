@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.Experimental.GlobalIllumination;
 
 public class HouseManager : MonoBehaviour
 {
@@ -31,6 +30,34 @@ public class HouseManager : MonoBehaviour
         {
             Debug.LogError("Invalid light index: " + lightIndex);
         }
+    }
+
+    public void SetLightSetEnabled(int lightIndex, bool isEnabled)
+    {
+        if (lightIndex < 0 || lightIndex >= lightSets.Length)
+        {
+            Debug.LogError("Invalid light index: " + lightIndex);
+            return;
+        }
+
+        GameObject lightSet = lightSets[lightIndex];
+        if (lightSet != null)
+            lightSet.SetActive(isEnabled);
+    }
+
+    public void SetAllLightsEnabled(bool isEnabled)
+    {
+        for (int i = 0; i < lightSets.Length; i++)
+        {
+            GameObject lightSet = lightSets[i];
+            if (lightSet != null)
+                lightSet.SetActive(isEnabled);
+        }
+    }
+
+    public void TurnOffAllLights()
+    {
+        SetAllLightsEnabled(false);
     }
 
 
