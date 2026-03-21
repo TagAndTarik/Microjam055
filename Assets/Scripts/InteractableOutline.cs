@@ -108,4 +108,9 @@ public class InteractableOutline : MonoBehaviour
 
         return sharedOutlineMaterial;
     }
+
+    public static Material GetSharedOutlineMaterial()
+    {
+        return GetOutlineMaterial();
+    }
 }

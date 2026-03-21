@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -17,12 +18,22 @@ public class PickupInteractable : MonoBehaviour, IInteractable
     [SerializeField] private Vector3 heldPositionOffset = Vector3.zero;
     [SerializeField] private float heldMaxSize = 0.45f;
     [SerializeField] private bool disableShadowsWhileHeld = true;
+    [SerializeField] private string placementId;
 
     private Collider[] colliders;
     private Rigidbody[] rigidbodies;
     private Renderer[] renderers;
     private Transform[] hierarchyTransforms;
     private bool isHeld;
+    private bool[] originalColliderStates;
+    private bool[] originalKinematicStates;
+    private bool[] originalGravityStates;
+    private ShadowCastingMode[] originalShadowCastingModes;
+    private bool[] originalReceiveShadowStates;
+    private int[] originalLayers;
+    private Vector3 originalLocalScale;
+
+    public Vector3 OriginalLocalScale => originalLocalScale == Vector3.zero ? transform.localScale : originalLocalScale;
 
     private void Awake()
     {
@@ -39,6 +50,8 @@ public class PickupInteractable : MonoBehaviour, IInteractable
 
         if (hoverMessageFontSize <= 0)
             hoverMessageFontSize = DefaultHoverMessageFontSize;
+
+        CaptureOriginalState();
     }
 
     private void OnValidate()
@@ -90,12 +103,63 @@ public class PickupInteractable : MonoBehaviour, IInteractable
             outline?.SetOutlined(false);
     }
 
+    public bool PlaceAt(Transform targetTransform)
+    {
+        if (!isHeld || targetTransform == null)
+            return false;
+
+        CacheComponents();
+
+        transform.SetParent(targetTransform, false);
+        transform.localPosition = Vector3.zero;
+        transform.localRotation = Quaternion.identity;
+        transform.localScale = originalLocalScale;
+
+        for (int i = 0; i < colliders.Length; i++)
+            colliders[i].enabled = originalColliderStates[i];
+
+        for (int i = 0; i < rigidbodies.Length; i++)
+        {
+            Rigidbody body = rigidbodies[i];
+            body.isKinematic = originalKinematicStates[i];
+            body.useGravity = originalGravityStates[i];
+            body.linearVelocity = Vector3.zero;
+            body.angularVelocity = Vector3.zero;
+        }
+
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            Renderer targetRenderer = renderers[i];
+            targetRenderer.shadowCastingMode = originalShadowCastingModes[i];
+            targetRenderer.receiveShadows = originalReceiveShadowStates[i];
+        }
+
+        for (int i = 0; i < hierarchyTransforms.Length; i++)
+            hierarchyTransforms[i].gameObject.layer = originalLayers[i];
+
+        isHeld = false;
+        outline?.SetOutlined(false);
+        return true;
+    }
+
+    public bool MatchesPlacementId(string candidatePlacementId)
+    {
+        if (string.IsNullOrWhiteSpace(placementId) || string.IsNullOrWhiteSpace(candidatePlacementId))
+            return false;
+
+        return string.Equals(
+            placementId.Trim(),
+            candidatePlacementId.Trim(),
+            StringComparison.OrdinalIgnoreCase);
+    }
+
     public bool AttachToSocket(Transform holdAnchor, int heldItemLayer)
     {
         if (isHeld || holdAnchor == null || heldItemLayer < 0)
             return false;
 
         CacheComponents();
+        CaptureOriginalState();
 
         Vector3 originalWorldScale = transform.lossyScale;
         Bounds originalBounds = CalculateWorldBounds();
@@ -167,6 +231,56 @@ public class PickupInteractable : MonoBehaviour, IInteractable
         }
 
         renderers = filteredRenderers.ToArray();
+    }
+
+    private void CaptureOriginalState()
+    {
+        if (isHeld)
+            return;
+
+        CacheComponents();
+
+        if (originalColliderStates != null &&
+            originalColliderStates.Length == colliders.Length &&
+            originalKinematicStates != null &&
+            originalKinematicStates.Length == rigidbodies.Length &&
+            originalGravityStates != null &&
+            originalGravityStates.Length == rigidbodies.Length &&
+            originalShadowCastingModes != null &&
+            originalShadowCastingModes.Length == renderers.Length &&
+            originalReceiveShadowStates != null &&
+            originalReceiveShadowStates.Length == renderers.Length &&
+            originalLayers != null &&
+            originalLayers.Length == hierarchyTransforms.Length)
+        {
+            return;
+        }
+
+        originalLocalScale = transform.localScale;
+
+        originalColliderStates = new bool[colliders.Length];
+        for (int i = 0; i < colliders.Length; i++)
+            originalColliderStates[i] = colliders[i].enabled;
+
+        originalKinematicStates = new bool[rigidbodies.Length];
+        originalGravityStates = new bool[rigidbodies.Length];
+        for (int i = 0; i < rigidbodies.Length; i++)
+        {
+            originalKinematicStates[i] = rigidbodies[i].isKinematic;
+            originalGravityStates[i] = rigidbodies[i].useGravity;
+        }
+
+        originalShadowCastingModes = new ShadowCastingMode[renderers.Length];
+        originalReceiveShadowStates = new bool[renderers.Length];
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            originalShadowCastingModes[i] = renderers[i].shadowCastingMode;
+            originalReceiveShadowStates[i] = renderers[i].receiveShadows;
+        }
+
+        originalLayers = new int[hierarchyTransforms.Length];
+        for (int i = 0; i < hierarchyTransforms.Length; i++)
+            originalLayers[i] = hierarchyTransforms[i].gameObject.layer;
     }
 
     private Bounds CalculateWorldBounds()
