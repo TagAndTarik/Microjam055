@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 2178309115149545231}
   - component: {fileID: 7015753722451646715}
   - component: {fileID: 1576593992446461275}
+  - component: {fileID: 3456789012345678903}
   m_Layer: 0
   m_Name: Interior_Door
   m_TagString: Untagged
@@ -97,3 +98,19 @@ BoxCollider:
   serializedVersion: 2
   m_Size: {x: 0.8959997, y: 2.0370002, z: 0.066000335}
   m_Center: {x: 0.4459999, y: 1.0195, z: 0.031999942}
+--- !u!114 &3456789012345678903
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6496748334773340241}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9f7a4e2b0c1d48f49f0ab89ab4e6c321, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DoorController
+  doorPivot: {fileID: 4332682439126214569}
+  openAngle: 95
+  openDuration: 0.45
+  openAwayFromInteractor: 1
