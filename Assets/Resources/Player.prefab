@@ -222,7 +222,7 @@ CharacterController:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Height: 1.2
+  m_Height: 1.75
   m_Radius: 0.15
   m_SlopeLimit: 45
   m_StepOffset: 0.3
@@ -243,13 +243,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SimpleFirstPersonController
   cameraPivot: {fileID: 5881519132315077691}
   playerCamera: {fileID: 0}
-  moveSpeed: 5
-  jumpHeight: 1.2
-  gravity: 0
+  moveSpeed: 4
+  jumpHeight: 0
+  gravity: -5
   mouseSensitivity: 0.1
   maxLookAngle: 80
   cameraNearClipPlane: 0.03
-  interactDistance: 3
+  interactDistance: 2
   interactMask:
     serializedVersion: 2
     m_Bits: 4294967295
@@ -265,3 +265,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 066c8f24ed98d5b4fb49bec23b900e5b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerManager
+  interactCastRadius: 0.08
+  logInteractDebug: 1
+  showCrosshair: 1
+  crosshairSize: 12
+  crosshairThickness: 2
+  crosshairColor: {r: 1, g: 1, b: 1, a: 0.9}
+  showHoverPrompt: 1
+  hoverPromptOffsetY: -28
+  hoverPromptSize: {x: 320, y: 44}

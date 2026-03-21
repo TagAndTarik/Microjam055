@@ -4,8 +4,9 @@ using UnityEngine;
 public class InteractableOutline : MonoBehaviour
 {
     [SerializeField] private MeshRenderer[] targetRenderers;
-    [SerializeField] private float outlineScale = 1.04f;
+    private float outlineScale = 1.03f;
 
+    private static readonly Color OutlineColor = new Color(1f, 1f, 1f, 0.45f);
     private static Material sharedOutlineMaterial;
     private readonly List<GameObject> outlineObjects = new List<GameObject>();
 
@@ -70,11 +71,15 @@ public class InteractableOutline : MonoBehaviour
         if (sharedOutlineMaterial != null)
             return sharedOutlineMaterial;
 
-        Shader shader = Shader.Find("Universal Render Pipeline/Unlit");
+        Shader shader = Shader.Find("Custom/InteractableOutline");
+        if (shader == null)
+            shader = Shader.Find("Standard");
         if (shader == null)
             shader = Shader.Find("Unlit/Color");
         if (shader == null)
             shader = Shader.Find("Sprites/Default");
+        if (shader == null)
+            shader = Shader.Find("Universal Render Pipeline/Unlit");
 
         sharedOutlineMaterial = new Material(shader)
         {
@@ -83,10 +88,23 @@ public class InteractableOutline : MonoBehaviour
         };
 
         if (sharedOutlineMaterial.HasProperty("_BaseColor"))
-            sharedOutlineMaterial.SetColor("_BaseColor", Color.white);
+            sharedOutlineMaterial.SetColor("_BaseColor", OutlineColor);
 
         if (sharedOutlineMaterial.HasProperty("_Color"))
-            sharedOutlineMaterial.SetColor("_Color", Color.white);
+            sharedOutlineMaterial.SetColor("_Color", OutlineColor);
+
+        if (sharedOutlineMaterial.HasProperty("_Glossiness"))
+            sharedOutlineMaterial.SetFloat("_Glossiness", 0f);
+
+        if (sharedOutlineMaterial.HasProperty("_Metallic"))
+            sharedOutlineMaterial.SetFloat("_Metallic", 0f);
+
+        if (sharedOutlineMaterial.HasProperty("_EmissionColor"))
+        {
+            sharedOutlineMaterial.EnableKeyword("_EMISSION");
+            sharedOutlineMaterial.SetColor("_EmissionColor", OutlineColor);
+            sharedOutlineMaterial.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
+        }
 
         return sharedOutlineMaterial;
     }
