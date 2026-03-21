@@ -404,6 +404,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 47def79c8c60f4042b29290cd98b7ddb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::OutOfViewDisappearBehavior
+  initiated: 0
   inView: 0
   disappearRenderer: {fileID: 1643964632}
   ObjectToAppear: {fileID: 1616201793}
@@ -1101,6 +1102,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 74d3d41ede0c886429313a646d8183d6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DisappearBehavior
+  initiated: 0
   inView: 0
   disappearRenderer: {fileID: 1447519898}
   ObjectToAppear: {fileID: 896850985}
