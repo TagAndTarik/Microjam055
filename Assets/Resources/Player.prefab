@@ -262,6 +262,12 @@ MonoBehaviour:
   showHoverPrompt: 1
   hoverPromptOffsetY: -28
   hoverPromptSize: {x: 320, y: 44}
+  showPlayerMessages: 1
+  defaultPlayerMessageDuration: 4.5
+  playerMessageOffsetY: -86
+  playerMessageSize: {x: 620, y: 110}
+  playerMessageFontSize: 34
+  playerMessageColor: {r: 1, g: 0.18, b: 0.18, a: 1}
 --- !u!114 &7642575765247377595
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -275,5 +281,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerManager
   outsideSoundVolume: 1
-  insideSoundVolume: 0.35
+  insideSoundVolume: 0.15
+  insideDetector: {fileID: 0}
   _disappearRenderer: {fileID: 0}

@@ -4,15 +4,10 @@ public class PlayerManager : MonoBehaviour
 {
     [Header("Ambient Sound Volumes")]
     [SerializeField] private float outsideSoundVolume = 1.0f;
-    [SerializeField] private float insideSoundVolume = 0.35f;
-
-    
-
-    
-
+    [SerializeField] private float insideSoundVolume = 0.15f;
+    [SerializeField] private Collider insideDetector;
     public bool inHouse { get; private set; } = false;
     public Plane[] cameraPlanes { get; private set; }
-    private Collider _previousActivatedTrigger;
     public DisappearBehavior _disappearComponent;
 
     public static PlayerManager PlayerManagerInstance { get; private set; }
@@ -30,7 +25,7 @@ public class PlayerManager : MonoBehaviour
     }
     private void Start()
     {
-        inHouse = false;
+        SetInsideState(false);
     }
 
     private void Update()
@@ -53,21 +48,12 @@ public class PlayerManager : MonoBehaviour
         {
             _disappearComponent = other.GetComponentInChildren<DisappearBehavior>();
         }
-        if(_previousActivatedTrigger == null)
-        {
-            return;
-        }
-        else if(_previousActivatedTrigger.CompareTag("OutsideBox") && other.CompareTag("InsideBox"))
-        {
-            inHouse = true;
-            GameManager.GameManagerInstance.ChangeAmbientNightVolume(insideSoundVolume);
-        }
 
-        else if(_previousActivatedTrigger.CompareTag("InsideBox") && other.CompareTag("OutsideBox"))
-        {
-            inHouse = false;
-            GameManager.GameManagerInstance.ChangeAmbientNightVolume(outsideSoundVolume);
-        }
+        if (!IsInsideTrigger(other))
+            return;
+
+        if (!inHouse)
+            SetInsideState(true);
     }
 
     private void OnTriggerExit(Collider other)
