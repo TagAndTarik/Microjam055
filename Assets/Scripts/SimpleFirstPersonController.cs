@@ -15,6 +15,7 @@ public class SimpleFirstPersonController : MonoBehaviour
     [Header("References")]
     [SerializeField] private Transform cameraPivot;
     [SerializeField] private Camera playerCamera;
+    private PlayerManager playerManagerScript;
 
     [Header("Movement")]
     [SerializeField] private float moveSpeed = 5f;
@@ -62,7 +63,7 @@ public class SimpleFirstPersonController : MonoBehaviour
 
         if (playerCamera != null)
             playerCamera.nearClipPlane = Mathf.Max(0.01f, cameraNearClipPlane);
-
+        playerManagerScript = GetComponent<PlayerManager>();    
         EnsureCrosshair();
         ApplyCrosshairStyle();
         SetCrosshairVisible(showCrosshair);

@@ -20,6 +20,9 @@ public class PickupInteractable : MonoBehaviour, IInteractable
     [SerializeField] private bool disableShadowsWhileHeld = true;
     [SerializeField] private string placementId;
 
+    [Header("Disappear Behavior")]
+    [SerializeField] private DisappearBehavior DisappearObject;
+
     private Collider[] colliders;
     private Rigidbody[] rigidbodies;
     private Renderer[] renderers;
@@ -97,8 +100,11 @@ public class PickupInteractable : MonoBehaviour, IInteractable
 
         HeldItemSocket socket = HeldItemSocket.GetOrCreate(interactor);
         if (socket == null)
+        {
             return;
 
+        }
+        PlayerManager.PlayerManagerInstance._disappearComponent = DisappearObject;
         if (socket.TryHold(this))
             outline?.SetOutlined(false);
     }

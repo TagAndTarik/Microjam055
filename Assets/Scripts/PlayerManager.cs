@@ -15,6 +15,19 @@ public class PlayerManager : MonoBehaviour
     private Collider _previousActivatedTrigger;
     public DisappearBehavior _disappearComponent;
 
+    public static PlayerManager PlayerManagerInstance { get; private set; }
+
+    private void Awake()
+    {
+        if(PlayerManagerInstance != null && PlayerManagerInstance != this)
+        {
+            Destroy(gameObject);
+        }
+        else
+        {
+            PlayerManagerInstance = this;
+        }
+    }
     private void Start()
     {
         inHouse = false;

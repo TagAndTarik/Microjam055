@@ -5,6 +5,7 @@ public class DisappearBehavior : MonoBehaviour
     public bool inView;
 
     public Renderer disappearRenderer;
+    public GameObject ObjectToAppear;
     public void PerformDisappear(Plane[] cameraPlanes)
     {
         if(inView)
@@ -12,6 +13,7 @@ public class DisappearBehavior : MonoBehaviour
             if(!GeometryUtility.TestPlanesAABB(cameraPlanes, disappearRenderer.bounds))
             {
                 disappearRenderer.gameObject.SetActive(false);
+                ObjectToAppear.SetActive(true);
             }
         }
 
