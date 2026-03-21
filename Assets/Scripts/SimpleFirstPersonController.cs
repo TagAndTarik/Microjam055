@@ -6,6 +6,7 @@ public class SimpleFirstPersonController : MonoBehaviour
 {
     [Header("References")]
     [SerializeField] private Transform cameraPivot;
+    [SerializeField] private Camera playerCamera;
 
     [Header("Movement")]
     [SerializeField] private float moveSpeed = 5f;
@@ -15,6 +16,7 @@ public class SimpleFirstPersonController : MonoBehaviour
     [Header("Look")]
     [SerializeField] private float mouseSensitivity = 0.1f;
     [SerializeField] private float maxLookAngle = 80f;
+    [SerializeField] private float cameraNearClipPlane = 0.03f;
 
     private CharacterController controller;
     private float verticalVelocity;
@@ -23,6 +25,11 @@ public class SimpleFirstPersonController : MonoBehaviour
     private void Awake()
     {
         controller = GetComponent<CharacterController>();
+        if (playerCamera == null)
+            playerCamera = GetComponentInChildren<Camera>();
+
+        if (playerCamera != null)
+            playerCamera.nearClipPlane = Mathf.Max(0.01f, cameraNearClipPlane);
 
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
