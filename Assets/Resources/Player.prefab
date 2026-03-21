@@ -248,7 +248,12 @@ MonoBehaviour:
   mouseSensitivity: 0.1
   maxLookAngle: 80
   cameraNearClipPlane: 0.03
-  interactDistance: 3
+  interactDistance: 2
   interactMask:
     serializedVersion: 2
     m_Bits: 4294967295
+  interactCastRadius: 0.08
+  showCrosshair: 1
+  crosshairSize: 12
+  crosshairThickness: 2
+  crosshairColor: {r: 1, g: 1, b: 1, a: 0.9}
