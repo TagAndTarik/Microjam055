@@ -6,26 +6,48 @@ public class PlayerManager : MonoBehaviour
     [SerializeField] private float outsideSoundVolume = 1.0f;
     [SerializeField] private float insideSoundVolume = 0.35f;
 
+    
+
+    
+
     public bool inHouse { get; private set; } = false;
+    public Plane[] cameraPlanes { get; private set; }
     private Collider _previousActivatedTrigger;
+    public Renderer _disappearRenderer;
 
     private void Start()
     {
         inHouse = false;
     }
 
-     /*"if the previous activated trigger was the outside one, and player now triggered inside one, player has just crossed the boundary and is now inside"
+    private void Update()
+    {
+        cameraPlanes = GeometryUtility.CalculateFrustumPlanes(Camera.main);
+        if(_disappearRenderer != null)
+        {
+            if(!GeometryUtility.TestPlanesAABB(cameraPlanes, _disappearRenderer.bounds))
+            {
+                _disappearRenderer.gameObject.SetActive(false);
+            }
+        }
+    }
 
-    "if the previous activated trigger was the inside one, and player now triggered outside one, player has just crossed the boundary and is now outside"
+    /*"if the previous activated trigger was the outside one, and player now triggered inside one, player has just crossed the boundary and is now inside"
 
-    "if the last activated trigger is the same as the current one, player hasn't crossed any boundary so inside/outside status hasn't changed. */
+   "if the previous activated trigger was the inside one, and player now triggered outside one, player has just crossed the boundary and is now outside"
+
+   "if the last activated trigger is the same as the current one, player hasn't crossed any boundary so inside/outside status hasn't changed. */
     private void OnTriggerEnter(Collider other)
     {
+        if (other.CompareTag("Wacky"))
+        {
+            _disappearRenderer = other.GetComponentInChildren<Renderer>();
+        }
         if(_previousActivatedTrigger == null)
         {
             return;
         }
-        if(_previousActivatedTrigger.CompareTag("OutsideBox") && other.CompareTag("InsideBox"))
+        else if(_previousActivatedTrigger.CompareTag("OutsideBox") && other.CompareTag("InsideBox"))
         {
             inHouse = true;
             GameManager.GameManagerInstance.ChangeAmbientNightVolume(insideSoundVolume);
@@ -40,6 +62,12 @@ public class PlayerManager : MonoBehaviour
 
     private void OnTriggerExit(Collider other)
     {
-        _previousActivatedTrigger = other;
+        if (other.CompareTag("Wacky"))
+        {
+            _disappearRenderer = null;
+        }
+
+        else if(other.CompareTag("InsideBox") || other.CompareTag("OutsideBox"))
+            _previousActivatedTrigger = other;
     }
 }

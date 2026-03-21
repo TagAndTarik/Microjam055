@@ -6,6 +6,7 @@ TagManager:
   tags:
   - OutsideBox
   - InsideBox
+  - Wacky
   layers:
   - Default
   - TransparentFX
@@ -14,8 +15,7 @@ TagManager:
   - Water
   - UI
   - HeldItem
-  - 
-  - 
+  - DisappearObjects
   - 
   - 
   - 

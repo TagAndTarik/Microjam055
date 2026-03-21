@@ -252,7 +252,16 @@ MonoBehaviour:
   interactDistance: 2
   interactMask:
     serializedVersion: 2
-    m_Bits: 4294967295
+    m_Bits: 119
+  interactCastRadius: 0.08
+  logInteractDebug: 1
+  showCrosshair: 1
+  crosshairSize: 12
+  crosshairThickness: 2
+  crosshairColor: {r: 1, g: 1, b: 1, a: 0.9}
+  showHoverPrompt: 1
+  hoverPromptOffsetY: -28
+  hoverPromptSize: {x: 320, y: 44}
 --- !u!114 &7642575765247377595
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -265,12 +274,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 066c8f24ed98d5b4fb49bec23b900e5b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerManager
-  interactCastRadius: 0.08
-  logInteractDebug: 1
-  showCrosshair: 1
-  crosshairSize: 12
-  crosshairThickness: 2
-  crosshairColor: {r: 1, g: 1, b: 1, a: 0.9}
-  showHoverPrompt: 1
-  hoverPromptOffsetY: -28
-  hoverPromptSize: {x: 320, y: 44}
+  outsideSoundVolume: 1
+  insideSoundVolume: 0.35
+  _disappearRenderer: {fileID: 0}
