@@ -13,7 +13,7 @@ public class PlayerManager : MonoBehaviour
     public bool inHouse { get; private set; } = false;
     public Plane[] cameraPlanes { get; private set; }
     private Collider _previousActivatedTrigger;
-    public Renderer _disappearRenderer;
+    public DisappearBehavior _disappearComponent;
 
     private void Start()
     {
@@ -23,12 +23,9 @@ public class PlayerManager : MonoBehaviour
     private void Update()
     {
         cameraPlanes = GeometryUtility.CalculateFrustumPlanes(Camera.main);
-        if(_disappearRenderer != null)
+        if(_disappearComponent != null)
         {
-            if(!GeometryUtility.TestPlanesAABB(cameraPlanes, _disappearRenderer.bounds))
-            {
-                _disappearRenderer.gameObject.SetActive(false);
-            }
+            _disappearComponent.PerformDisappear(cameraPlanes);
         }
     }
 
@@ -41,7 +38,7 @@ public class PlayerManager : MonoBehaviour
     {
         if (other.CompareTag("Wacky"))
         {
-            _disappearRenderer = other.GetComponentInChildren<Renderer>();
+            _disappearComponent = other.GetComponentInChildren<DisappearBehavior>();
         }
         if(_previousActivatedTrigger == null)
         {
@@ -64,7 +61,7 @@ public class PlayerManager : MonoBehaviour
     {
         if (other.CompareTag("Wacky"))
         {
-            _disappearRenderer = null;
+            _disappearComponent = null;
         }
 
         else if(other.CompareTag("InsideBox") || other.CompareTag("OutsideBox"))
