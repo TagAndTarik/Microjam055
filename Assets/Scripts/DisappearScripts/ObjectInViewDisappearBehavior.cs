@@ -2,6 +2,7 @@ using UnityEngine;
 
 public class ObjectInViewDisappearBehavior : BaseDisappearBehavior
 {
+    public GameObject[] ObjectsToDisappear;
     public override void Perform(Plane[] cameraPlanes)
     {
         if(inView)
@@ -9,7 +10,12 @@ public class ObjectInViewDisappearBehavior : BaseDisappearBehavior
             if(!GeometryUtility.TestPlanesAABB(cameraPlanes, disappearRenderer.bounds))
             {
                 disappearRenderer.gameObject.SetActive(false);
-                if(ObjectToAppear != null)
+                for(int i = 0; i < ObjectsToDisappear.Length; i++)
+                {
+                    if(ObjectsToDisappear[i] != null)
+                        ObjectsToDisappear[i].SetActive(false);
+                }
+                if (ObjectToAppear != null)
                     ObjectToAppear.SetActive(true);
                 base.SpawnSFX();
 
