@@ -31,7 +31,15 @@ public class LightsOffInteractable : MonoBehaviour, IInteractable
     [SerializeField] private int hoverMessageFontSize = 18;
     [SerializeField] private Color hoverMessageColor = new Color(1f, 1f, 1f, 0.95f);
 
+    public static bool HasTriggeredAnyBedInteraction { get; private set; }
+
     private bool hasTriggered;
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetSessionState()
+    {
+        HasTriggeredAnyBedInteraction = false;
+    }
 
     private void Awake()
     {
@@ -96,6 +104,7 @@ public class LightsOffInteractable : MonoBehaviour, IInteractable
         PlayScaryChimes();
         ReplaceFrontDoorWithWall();
         ShowPostInteractMessage(interactor);
+        HasTriggeredAnyBedInteraction = true;
         hasTriggered = true;
         outline?.SetOutlined(false);
     }

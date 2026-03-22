@@ -12633,6 +12633,14 @@ PrefabInstance:
       propertyPath: m_Name
       value: (Prb)DeskLight
       objectReference: {fileID: 0}
+    - target: {fileID: 5951373164338049982, guid: e0a309163f5d1ef4e81367371dba0804, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4934079345739507868, guid: e0a309163f5d1ef4e81367371dba0804, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 6475145956812204292, guid: e0a309163f5d1ef4e81367371dba0804, type: 3}
       propertyPath: m_LocalPosition.x
       value: 5.9542875
@@ -12683,6 +12691,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 5951373164338049982, guid: e0a309163f5d1ef4e81367371dba0804, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1689618843}
+    - targetCorrespondingSourceObject: {fileID: 5951373164338049982, guid: e0a309163f5d1ef4e81367371dba0804, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1689618844}
   m_SourcePrefab: {fileID: 100100000, guid: e0a309163f5d1ef4e81367371dba0804, type: 3}
 --- !u!4 &1689618840 stripped
 Transform:
@@ -12730,6 +12741,32 @@ MonoBehaviour:
   lightIntensity: 1.6
   lightRange: 4.5
   castShadows: 1
+  requireBedInteraction: 1
+  enablePickupAfterLighting: 1
+  pickupInteractable: {fileID: 1689618844}
+--- !u!114 &1689618844
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1689618841}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4d1dc8dd944c4346ac253d8af918e36f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PickupInteractable
+  outline: {fileID: 1689618842}
+  hoverMessage: Pick up lamp
+  hoverMessageFont: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
+  hoverMessageFontSize: 18
+  hoverMessageColor: {r: 1, g: 1, b: 1, a: 0.95}
+  heldEulerAngles: {x: 12, y: -30, z: 0}
+  heldPositionOffset: {x: 0, y: 0, z: 0}
+  heldMaxSize: 0.45
+  disableShadowsWhileHeld: 1
+  placementId: 
+  DisappearObject: {fileID: 0}
 --- !u!1001 &1690716135
 PrefabInstance:
   m_ObjectHideFlags: 0

@@ -21,6 +21,11 @@ public class WarmLightInteractable : MonoBehaviour, IInteractable
     [SerializeField, Min(0f)] private float lightRange = 4.5f;
     [SerializeField] private bool castShadows = true;
 
+    [Header("Progression")]
+    [SerializeField] private bool requireBedInteraction;
+    [SerializeField] private bool enablePickupAfterLighting = true;
+    [SerializeField] private PickupInteractable pickupInteractable;
+
     private bool isLit;
 
     private void Awake()
@@ -31,8 +36,10 @@ public class WarmLightInteractable : MonoBehaviour, IInteractable
         if (hoverMessageFontSize <= 0)
             hoverMessageFontSize = DefaultHoverMessageFontSize;
 
+        pickupInteractable = ResolvePickupInteractable();
         targetLight = ResolveTargetLight();
         isLit = targetLight != null && targetLight.enabled;
+        UpdatePickupAvailability();
     }
 
     private void OnValidate()
@@ -42,16 +49,19 @@ public class WarmLightInteractable : MonoBehaviour, IInteractable
 
         if (hoverMessageFontSize <= 0)
             hoverMessageFontSize = DefaultHoverMessageFontSize;
+
+        if (pickupInteractable == null)
+            pickupInteractable = GetComponent<PickupInteractable>();
     }
 
     public void SetFocused(bool focused)
     {
-        outline?.SetOutlined(focused && !isLit);
+        outline?.SetOutlined(focused && !isLit && CanLightLamp());
     }
 
     public string GetHoverMessage()
     {
-        return isLit ? string.Empty : hoverMessage;
+        return isLit || !CanLightLamp() ? string.Empty : hoverMessage;
     }
 
     public Font GetHoverMessageFont()
@@ -71,7 +81,7 @@ public class WarmLightInteractable : MonoBehaviour, IInteractable
 
     public void Interact(Transform interactor)
     {
-        if (isLit)
+        if (isLit || !CanLightLamp())
             return;
 
         targetLight = ResolveTargetLight();
@@ -85,6 +95,7 @@ public class WarmLightInteractable : MonoBehaviour, IInteractable
         targetLight.enabled = true;
         isLit = true;
         outline?.SetOutlined(false);
+        EnablePickupIfConfigured();
     }
 
     private Light ResolveTargetLight()
@@ -94,6 +105,15 @@ public class WarmLightInteractable : MonoBehaviour, IInteractable
 
         targetLight = GetComponentInChildren<Light>(true);
         return targetLight;
+    }
+
+    private PickupInteractable ResolvePickupInteractable()
+    {
+        if (pickupInteractable != null)
+            return pickupInteractable;
+
+        pickupInteractable = GetComponent<PickupInteractable>();
+        return pickupInteractable;
     }
 
     private Light CreateTargetLight()
@@ -117,6 +137,37 @@ public class WarmLightInteractable : MonoBehaviour, IInteractable
         lightToConfigure.shadows = castShadows ? LightShadows.Soft : LightShadows.None;
         lightToConfigure.renderMode = LightRenderMode.Auto;
         lightToConfigure.bounceIntensity = 1f;
+    }
+
+    private bool CanLightLamp()
+    {
+        return !requireBedInteraction || LightsOffInteractable.HasTriggeredAnyBedInteraction;
+    }
+
+    private void UpdatePickupAvailability()
+    {
+        PickupInteractable pickup = ResolvePickupInteractable();
+        if (pickup == null)
+            return;
+
+        if (enablePickupAfterLighting && isLit)
+        {
+            pickup.enabled = true;
+            enabled = false;
+            return;
+        }
+
+        pickup.enabled = false;
+    }
+
+    private void EnablePickupIfConfigured()
+    {
+        PickupInteractable pickup = ResolvePickupInteractable();
+        if (!enablePickupAfterLighting || pickup == null)
+            return;
+
+        pickup.enabled = true;
+        enabled = false;
     }
 
     private static bool IsUnsetColor(Color color)

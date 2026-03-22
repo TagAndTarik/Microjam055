@@ -219,6 +219,9 @@ public class SimpleFirstPersonController : MonoBehaviour
 
         for (int i = 0; i < behaviours.Length; i++)
         {
+            if (behaviours[i] == null || !behaviours[i].isActiveAndEnabled)
+                continue;
+
             if (behaviours[i] is IInteractable interactable)
                 return interactable;
         }
