@@ -4,7 +4,6 @@ using UnityEngine;
 public class MakeAppear : BaseDisappearBehavior
 {
     public bool completedAnimation;
-    private bool madeSFX = false;
     public float speed;
     public Transform targetLocation;
     public float timeBeforeMovement = 0.5f;
@@ -21,12 +20,7 @@ public class MakeAppear : BaseDisappearBehavior
 
         else if (!completedAnimation)
         {
-            if (!madeSFX)
-            {
-                madeSFX = true;
-                GameObject sfxToCreate = Resources.Load<GameObject>("SFXObjects/ScaryChimesSFX");
-                Instantiate(sfxToCreate, transform.position, Quaternion.identity);
-            }
+            base.SpawnSFX();
             if (t < timeBeforeMovement)
             {
                 t += Time.deltaTime;

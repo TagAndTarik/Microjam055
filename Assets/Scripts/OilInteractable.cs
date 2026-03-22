@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 [DisallowMultipleComponent]
@@ -25,6 +26,8 @@ public class OilInteractable : MonoBehaviour, IInteractable
     private bool[] originalRendererStates;
     private bool isRevealed;
     private SimpleFirstPersonController cachedController;
+
+    public Action MakeObjectDisappear;
 
     private void Awake()
     {
@@ -101,7 +104,7 @@ public class OilInteractable : MonoBehaviour, IInteractable
 
         if (!string.IsNullOrWhiteSpace(postInteractMessage))
             controller.ShowPlayerMessage(postInteractMessage, postInteractMessageDuration);
-
+        MakeObjectDisappear?.Invoke();
         outline?.SetOutlined(false);
         gameObject.SetActive(false);
     }

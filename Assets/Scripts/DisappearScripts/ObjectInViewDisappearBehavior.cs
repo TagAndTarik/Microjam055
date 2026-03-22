@@ -9,7 +9,10 @@ public class ObjectInViewDisappearBehavior : BaseDisappearBehavior
             if(!GeometryUtility.TestPlanesAABB(cameraPlanes, disappearRenderer.bounds))
             {
                 disappearRenderer.gameObject.SetActive(false);
-                ObjectToAppear.SetActive(true);
+                if(ObjectToAppear != null)
+                    ObjectToAppear.SetActive(true);
+                base.SpawnSFX();
+
             }
         }
 
