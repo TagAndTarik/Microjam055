@@ -7,7 +7,7 @@ using UnityEngine.SceneManagement;
 [DisallowMultipleComponent]
 public sealed class ProceduralHouseGenerator : MonoBehaviour
 {
-    private const string TargetSceneName = "Dungeon Test";
+    private const string TargetSceneName = "Dungeon Test 2";
     private const string ResourceFolder = "Dungeon Parts/";
     private const float CellSize = 2.5f;
     private const float HalfCellSize = CellSize * 0.5f;
@@ -2717,9 +2717,31 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
     {
         Vector3 start = playerPosition + GetDirectionVector(direction) * InitialDoorDistance;
         float snappedX = Mathf.Round(start.x / CellSize) * CellSize;
-        float snappedY = Mathf.Round(playerPosition.y / FloorHeight) * FloorHeight;
+        float snappedY = GetGroundAlignedY(playerPosition);
         float snappedZ = Mathf.Round(start.z / CellSize) * CellSize;
         return new Vector3(snappedX, snappedY, snappedZ);
+    }
+
+    private float GetGroundAlignedY(Vector3 referencePosition)
+    {
+        float rayStartOffset = Mathf.Max(FloorHeight, 2f);
+        Vector3 origin = referencePosition + Vector3.up * rayStartOffset;
+        float rayDistance = rayStartOffset + FloorHeight * 4f;
+        RaycastHit[] hits = Physics.RaycastAll(origin, Vector3.down, rayDistance, ~0, QueryTriggerInteraction.Ignore);
+        Array.Sort(hits, CompareHitsByDistance);
+        for (int i = 0; i < hits.Length; i++)
+        {
+            Collider hitCollider = hits[i].collider;
+            if (hitCollider == null)
+                continue;
+
+            if (playerTransform != null && hitCollider.transform.IsChildOf(playerTransform))
+                continue;
+
+            return hits[i].point.y;
+        }
+
+        return Mathf.Round(referencePosition.y / FloorHeight) * FloorHeight;
     }
 
     private Frontier CreateRoomExit(
