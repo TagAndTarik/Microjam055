@@ -4,7 +4,7 @@ public abstract class BaseDisappearBehavior : MonoBehaviour
 {
     public bool initiated;
     public bool inView;
-    private bool madeSFX = false;
+    protected bool madeSFX = false;
     public Renderer disappearRenderer;
     public GameObject ObjectToAppear;
     public PickupInteractable pickupInteractable;
@@ -45,7 +45,7 @@ public abstract class BaseDisappearBehavior : MonoBehaviour
         initiated = true;
     }
 
-    public void SpawnSFX()
+    public virtual void SpawnSFX()
     {
         if (!madeSFX)
         {

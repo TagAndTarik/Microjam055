@@ -227,6 +227,7 @@ public class SimpleFirstPersonController : MonoBehaviour
 
         limitedVisibilityStartTime = Time.time;
         progress = 0f;
+        screenEffectSettings.CopySettings(startSettings);
         screenWackyAlpha = 0f;
         lastLampHeldState = IsLampHeld();
 

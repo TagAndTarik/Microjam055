@@ -20,7 +20,7 @@ public class MakeAppear : BaseDisappearBehavior
 
         else if (!completedAnimation)
         {
-            base.SpawnSFX();
+            SpawnSFX();
             if (t < timeBeforeMovement)
             {
                 t += Time.deltaTime;
@@ -39,5 +39,15 @@ public class MakeAppear : BaseDisappearBehavior
     public override void StartDisappearing()
     {
         base.StartDisappearing();
+    }
+
+    public override void SpawnSFX()
+    {
+        if (!madeSFX)
+        {
+            madeSFX = true;
+            GameObject sfxToCreate = Resources.Load<GameObject>("SFXObjects/ScaryHowlSFX");
+            Instantiate(sfxToCreate, transform.position, Quaternion.identity);
+        }
     }
 }
