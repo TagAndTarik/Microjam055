@@ -199,6 +199,15 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""MovePlayer"",
+                    ""type"": ""Button"",
+                    ""id"": ""99d72021-eeca-458b-b088-16729f5adf01"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
                 }
             ],
             ""bindings"": [
@@ -617,6 +626,17 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
                     ""processors"": """",
                     ""groups"": """",
                     ""action"": ""LightThree"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""ccabdedc-85a5-43c1-bc6b-88b2cb9eacb6"",
+                    ""path"": ""<Keyboard>/rightBracket"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""MovePlayer"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
                 }
@@ -1216,6 +1236,7 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         m_Player_LightOne = m_Player.FindAction("LightOne", throwIfNotFound: true);
         m_Player_LightTwo = m_Player.FindAction("LightTwo", throwIfNotFound: true);
         m_Player_LightThree = m_Player.FindAction("LightThree", throwIfNotFound: true);
+        m_Player_MovePlayer = m_Player.FindAction("MovePlayer", throwIfNotFound: true);
         // UI
         m_UI = asset.FindActionMap("UI", throwIfNotFound: true);
         m_UI_Navigate = m_UI.FindAction("Navigate", throwIfNotFound: true);
@@ -1321,6 +1342,7 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
     private readonly InputAction m_Player_LightOne;
     private readonly InputAction m_Player_LightTwo;
     private readonly InputAction m_Player_LightThree;
+    private readonly InputAction m_Player_MovePlayer;
     /// <summary>
     /// Provides access to input actions defined in input action map "Player".
     /// </summary>
@@ -1380,6 +1402,10 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         /// Provides access to the underlying input action "Player/LightThree".
         /// </summary>
         public InputAction @LightThree => m_Wrapper.m_Player_LightThree;
+        /// <summary>
+        /// Provides access to the underlying input action "Player/MovePlayer".
+        /// </summary>
+        public InputAction @MovePlayer => m_Wrapper.m_Player_MovePlayer;
         /// <summary>
         /// Provides access to the underlying input action map instance.
         /// </summary>
@@ -1442,6 +1468,9 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
             @LightThree.started += instance.OnLightThree;
             @LightThree.performed += instance.OnLightThree;
             @LightThree.canceled += instance.OnLightThree;
+            @MovePlayer.started += instance.OnMovePlayer;
+            @MovePlayer.performed += instance.OnMovePlayer;
+            @MovePlayer.canceled += instance.OnMovePlayer;
         }
 
         /// <summary>
@@ -1489,6 +1518,9 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
             @LightThree.started -= instance.OnLightThree;
             @LightThree.performed -= instance.OnLightThree;
             @LightThree.canceled -= instance.OnLightThree;
+            @MovePlayer.started -= instance.OnMovePlayer;
+            @MovePlayer.performed -= instance.OnMovePlayer;
+            @MovePlayer.canceled -= instance.OnMovePlayer;
         }
 
         /// <summary>
@@ -1873,6 +1905,13 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
         void OnLightThree(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "MovePlayer" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnMovePlayer(InputAction.CallbackContext context);
     }
     /// <summary>
     /// Interface to implement callback methods for all input action callbacks associated with input actions defined by "UI" which allows adding and removing callbacks.
