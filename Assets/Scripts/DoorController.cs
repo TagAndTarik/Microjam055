@@ -33,20 +33,6 @@ public class DoorController : MonoBehaviour
         closedRotation = doorPivot.localRotation;
     }
 
-    public void Configure(Transform pivot)
-    {
-        doorPivot = pivot;
-
-        if (doorPivot == null)
-        {
-            enabled = false;
-            return;
-        }
-
-        closedRotation = doorPivot.localRotation;
-        enabled = true;
-    }
-
     public void Toggle(Transform interactor)
     {
         if (!enabled)

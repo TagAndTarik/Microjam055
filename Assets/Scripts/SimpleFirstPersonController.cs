@@ -61,6 +61,13 @@ public class SimpleFirstPersonController : MonoBehaviour
     [SerializeField] private float jumpHeight = 1.2f;
     [SerializeField] private float gravity = -20f;
 
+    [Header("Character Controller")]
+    [SerializeField] private float controllerHeight = 1.68f;
+    [SerializeField] private float stairSlopeLimit = 85f;
+    [SerializeField] private float stairStepOffset = 0.25f;
+    [SerializeField] private float controllerSkinWidth = 0.08f;
+    [SerializeField] private float controllerMinMoveDistance = 0f;
+
     [Header("Look")]
     [SerializeField] private float mouseSensitivity = 0.1f;
     [SerializeField] private float maxLookAngle = 80f;
@@ -125,10 +132,18 @@ public class SimpleFirstPersonController : MonoBehaviour
     private Color limitedVisibilityFogColor;
     private HeldItemSocket heldItemSocket;
     private float progress;
+    private float defaultSlopeLimit;
+    private float defaultStepOffset;
+    private float defaultSkinWidth;
+    private float defaultMinMoveDistance;
+    private bool hasStoredControllerDefaults;
 
     private void Awake()
     {
         controller = GetComponent<CharacterController>();
+        StoreCharacterControllerDefaults();
+        ApplyCharacterControllerSettings();
+
         if (playerCamera == null)
             playerCamera = GetComponentInChildren<Camera>();
 
@@ -176,6 +191,11 @@ public class SimpleFirstPersonController : MonoBehaviour
         interactCastRadius = Mathf.Max(0f, interactCastRadius);
         crosshairSize = Mathf.Max(1f, crosshairSize);
         crosshairThickness = Mathf.Max(1f, crosshairThickness);
+        controllerHeight = Mathf.Clamp(controllerHeight, 1.5f, 1.8f);
+        stairSlopeLimit = Mathf.Clamp(stairSlopeLimit, 1f, 89f);
+        stairStepOffset = Mathf.Max(0f, stairStepOffset);
+        controllerSkinWidth = Mathf.Max(0.001f, controllerSkinWidth);
+        controllerMinMoveDistance = Mathf.Max(0f, controllerMinMoveDistance);
         hoverPromptSize.x = Mathf.Max(1f, hoverPromptSize.x);
         hoverPromptSize.y = Mathf.Max(1f, hoverPromptSize.y);
         playerMessageSize.x = Mathf.Max(1f, playerMessageSize.x);
@@ -185,6 +205,7 @@ public class SimpleFirstPersonController : MonoBehaviour
 
         ApplyCrosshairStyle();
         SetCrosshairVisible(showCrosshair);
+        ApplyCharacterControllerSettings();
     }
 
     public void ShowPlayerMessage(string message, float duration = -1f)
@@ -349,6 +370,38 @@ public class SimpleFirstPersonController : MonoBehaviour
         move.y = verticalVelocity;
 
         controller.Move(move * Time.deltaTime);
+    }
+
+    private void ApplyCharacterControllerSettings()
+    {
+        if (controller == null)
+            controller = GetComponent<CharacterController>();
+
+        if (controller == null)
+            return;
+
+        StoreCharacterControllerDefaults();
+
+        controller.height = controllerHeight;
+        Vector3 controllerCenter = controller.center;
+        controllerCenter.y = controllerHeight * 0.5f;
+        controller.center = controllerCenter;
+        controller.slopeLimit = Mathf.Max(defaultSlopeLimit, stairSlopeLimit);
+        controller.stepOffset = Mathf.Max(defaultStepOffset, Mathf.Min(stairStepOffset, 0.3f));
+        controller.skinWidth = Mathf.Max(defaultSkinWidth, controllerSkinWidth);
+        controller.minMoveDistance = Mathf.Min(defaultMinMoveDistance, controllerMinMoveDistance);
+    }
+
+    private void StoreCharacterControllerDefaults()
+    {
+        if (controller == null || hasStoredControllerDefaults)
+            return;
+
+        defaultSlopeLimit = controller.slopeLimit;
+        defaultStepOffset = controller.stepOffset;
+        defaultSkinWidth = controller.skinWidth;
+        defaultMinMoveDistance = controller.minMoveDistance;
+        hasStoredControllerDefaults = true;
     }
 
     private void UpdateInteraction()
