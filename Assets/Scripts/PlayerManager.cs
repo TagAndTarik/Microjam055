@@ -3,7 +3,6 @@ using UnityEngine;
 public class PlayerManager : MonoBehaviour
 {
     public Plane[] cameraPlanes { get; private set; }
-    public DisappearBehavior _disappearComponent;
 
     public static PlayerManager PlayerManagerInstance { get; private set; }
 
@@ -25,9 +24,6 @@ public class PlayerManager : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        if (other.CompareTag("Wacky"))
-        {
-            _disappearComponent = other.GetComponentInChildren<DisappearBehavior>();
-        }
+        
     }
 }
