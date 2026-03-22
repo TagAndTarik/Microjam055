@@ -15612,6 +15612,12 @@ MonoBehaviour:
   scaryChimesPrefab: {fileID: 0}
   frontDoorObject: {fileID: 251189297}
   frontDoorWallObject: {fileID: 909741336}
+  darkenEnvironmentOnInteract: 1
+  targetAmbientSkyColor: {r: 0.045, g: 0.048, b: 0.058, a: 1}
+  targetAmbientEquatorColor: {r: 0.035, g: 0.038, b: 0.048, a: 1}
+  targetAmbientGroundColor: {r: 0.012, g: 0.011, b: 0.013, a: 1}
+  targetAmbientIntensity: 0.45
+  targetReflectionIntensity: 0.18
   hoverMessage: Sleep
   postInteractMessage: My lamp is in the attic
   postInteractMessageDuration: 4.5

@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 [DisallowMultipleComponent]
 public class LightsOffInteractable : MonoBehaviour, IInteractable
@@ -16,6 +17,13 @@ public class LightsOffInteractable : MonoBehaviour, IInteractable
     [SerializeField] private GameObject scaryChimesPrefab;
     [SerializeField] private GameObject frontDoorObject;
     [SerializeField] private GameObject frontDoorWallObject;
+    [Header("Darkness")]
+    [SerializeField] private bool darkenEnvironmentOnInteract = true;
+    [SerializeField] private Color targetAmbientSkyColor = new Color(0.045f, 0.048f, 0.058f, 1f);
+    [SerializeField] private Color targetAmbientEquatorColor = new Color(0.035f, 0.038f, 0.048f, 1f);
+    [SerializeField] private Color targetAmbientGroundColor = new Color(0.012f, 0.011f, 0.013f, 1f);
+    [SerializeField, Range(0f, 1f)] private float targetAmbientIntensity = 0.45f;
+    [SerializeField, Range(0f, 1f)] private float targetReflectionIntensity = 0.18f;
     [SerializeField, TextArea] private string hoverMessage = "Sleep";
     [SerializeField, TextArea] private string postInteractMessage = "My lamp is in the attic";
     [SerializeField] private float postInteractMessageDuration = 4.5f;
@@ -84,6 +92,7 @@ public class LightsOffInteractable : MonoBehaviour, IInteractable
             return;
 
         targetHouseManager.TurnOffAllLights();
+        DarkenEnvironment();
         PlayScaryChimes();
         ReplaceFrontDoorWithWall();
         ShowPostInteractMessage(interactor);
@@ -122,6 +131,20 @@ public class LightsOffInteractable : MonoBehaviour, IInteractable
 
         scaryChimesPrefab = Resources.Load<GameObject>(DefaultScaryChimesPrefabPath);
         return scaryChimesPrefab;
+    }
+
+    private void DarkenEnvironment()
+    {
+        if (!darkenEnvironmentOnInteract)
+            return;
+
+        RenderSettings.ambientMode = AmbientMode.Trilight;
+        RenderSettings.ambientSkyColor = targetAmbientSkyColor;
+        RenderSettings.ambientEquatorColor = targetAmbientEquatorColor;
+        RenderSettings.ambientGroundColor = targetAmbientGroundColor;
+        RenderSettings.ambientIntensity = Mathf.Clamp01(targetAmbientIntensity);
+        RenderSettings.reflectionIntensity = Mathf.Clamp01(targetReflectionIntensity);
+        DynamicGI.UpdateEnvironment();
     }
 
     private void ShowPostInteractMessage(Transform interactor)
