@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 
 [DisallowMultipleComponent]
@@ -130,7 +129,6 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
             return;
         }
 
-        ConfigureTestingLighting();
         initialized = true;
     }
 
@@ -271,30 +269,6 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
 
         if (playerCamera == null && playerTransform != null)
             playerCamera = playerTransform.GetComponentInChildren<Camera>();
-    }
-
-    private void ConfigureTestingLighting()
-    {
-        RenderSettings.fog = false;
-        RenderSettings.skybox = null;
-        RenderSettings.sun = null;
-        RenderSettings.ambientMode = AmbientMode.Flat;
-        RenderSettings.ambientLight = Color.white;
-        RenderSettings.ambientIntensity = 1f;
-        RenderSettings.reflectionIntensity = 0f;
-        RenderSettings.defaultReflectionMode = DefaultReflectionMode.Custom;
-        QualitySettings.shadows = ShadowQuality.Disable;
-        QualitySettings.shadowDistance = 0f;
-        QualitySettings.pixelLightCount = 0;
-
-        Light[] sceneLights = FindObjectsOfType<Light>(true);
-        for (int i = 0; i < sceneLights.Length; i++)
-        {
-            sceneLights[i].shadows = LightShadows.None;
-            sceneLights[i].enabled = false;
-        }
-
-        DynamicGI.UpdateEnvironment();
     }
 
     private void BuildEntryAntechamber()
