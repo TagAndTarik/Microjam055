@@ -14,6 +14,7 @@ public class SimpleFirstPersonController : MonoBehaviour
     private const string PlayerMessageName = "Player Message";
     private const int DefaultHoverPromptFontSize = 18;
     private const int DefaultPlayerMessageFontSize = 22;
+    private const float HeldLampVisibilityMultiplier = 2f;
     private static readonly Color DefaultHoverPromptColor = new Color(1f, 1f, 1f, 0.95f);
     private static readonly Color DefaultPlayerMessageColor = new Color(1f, 1f, 1f, 0.96f);
 
@@ -70,7 +71,15 @@ public class SimpleFirstPersonController : MonoBehaviour
     private float pitch;
     private float playerMessageHideTime;
     private float defaultFarClipPlane = 1000f;
+    private float limitedVisibilityDistance;
+    private float limitedVisibilityFogStartDistance;
+    private float limitedVisibilityVignetteIntensity;
+    private float limitedVisibilityVignetteSmoothness;
+    private bool hasLimitedVisibility;
+    private bool lastLampHeldState;
     private string activePlayerMessage = string.Empty;
+    private Color limitedVisibilityFogColor;
+    private HeldItemSocket heldItemSocket;
 
     private void Awake()
     {
@@ -103,6 +112,7 @@ public class SimpleFirstPersonController : MonoBehaviour
     {
         Look();
         UpdateInteraction();
+        UpdateVisibilityLimitForHeldLamp();
         UpdatePlayerMessage();
         Move();
     }
@@ -151,23 +161,71 @@ public class SimpleFirstPersonController : MonoBehaviour
             playerCamera = GetComponentInChildren<Camera>();
 
         float nearClip = Mathf.Max(0.01f, cameraNearClipPlane);
-        float clampedMaxDistance = Mathf.Max(nearClip + 0.01f, maxVisibleDistance);
-        float clampedFogStart = Mathf.Clamp(fogStartDistance, 0f, Mathf.Max(0f, clampedMaxDistance - 0.01f));
+        limitedVisibilityDistance = Mathf.Max(nearClip + 0.01f, maxVisibleDistance);
+        limitedVisibilityFogStartDistance = Mathf.Clamp(fogStartDistance, 0f, Mathf.Max(0f, limitedVisibilityDistance - 0.01f));
+        limitedVisibilityFogColor = fogColor;
+        limitedVisibilityVignetteIntensity = vignetteIntensity;
+        limitedVisibilityVignetteSmoothness = vignetteSmoothness;
+        hasLimitedVisibility = true;
+        lastLampHeldState = IsLampHeld();
+
+        ApplyStoredVisibilityLimit();
+    }
+
+    private void UpdateVisibilityLimitForHeldLamp()
+    {
+        if (!hasLimitedVisibility)
+            return;
+
+        bool isLampHeld = IsLampHeld();
+        if (isLampHeld == lastLampHeldState)
+            return;
+
+        lastLampHeldState = isLampHeld;
+        ApplyStoredVisibilityLimit();
+    }
+
+    private void ApplyStoredVisibilityLimit()
+    {
+        float nearClip = Mathf.Max(0.01f, cameraNearClipPlane);
+        float visibilityMultiplier = lastLampHeldState ? HeldLampVisibilityMultiplier : 1f;
+        float maxVisibleDistance = Mathf.Max(nearClip + 0.01f, limitedVisibilityDistance * visibilityMultiplier);
+        float fogStartDistance = Mathf.Clamp(
+            limitedVisibilityFogStartDistance * visibilityMultiplier,
+            0f,
+            Mathf.Max(0f, maxVisibleDistance - 0.01f));
 
         if (playerCamera != null)
         {
             playerCamera.nearClipPlane = nearClip;
             // Keep the original far clip so the darkness comes from fog, not from a flat cut plane.
-            playerCamera.farClipPlane = Mathf.Max(defaultFarClipPlane, clampedMaxDistance);
+            playerCamera.farClipPlane = Mathf.Max(defaultFarClipPlane, maxVisibleDistance);
         }
 
         RenderSettings.fog = true;
         RenderSettings.fogMode = FogMode.Linear;
-        RenderSettings.fogColor = fogColor;
-        RenderSettings.fogStartDistance = clampedFogStart;
-        RenderSettings.fogEndDistance = clampedMaxDistance;
+        RenderSettings.fogColor = limitedVisibilityFogColor;
+        RenderSettings.fogStartDistance = fogStartDistance;
+        RenderSettings.fogEndDistance = maxVisibleDistance;
 
-        ApplyVisibilityVignette(fogColor, vignetteIntensity, vignetteSmoothness);
+        ApplyVisibilityVignette(
+            limitedVisibilityFogColor,
+            limitedVisibilityVignetteIntensity,
+            limitedVisibilityVignetteSmoothness);
+    }
+
+    private bool IsLampHeld()
+    {
+        if (heldItemSocket == null)
+            heldItemSocket = GetComponent<HeldItemSocket>();
+
+        PickupInteractable heldItem = heldItemSocket != null ? heldItemSocket.HeldItem : null;
+        if (heldItem == null)
+            return false;
+
+        return heldItem.GetComponent<WarmLightInteractable>() != null ||
+               heldItem.GetComponentInParent<WarmLightInteractable>() != null ||
+               heldItem.GetComponentInChildren<WarmLightInteractable>(true) != null;
     }
 
     private void Look()
