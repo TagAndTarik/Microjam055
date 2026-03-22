@@ -10344,7 +10344,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5015120268381650014, guid: 5c0b0c53744c8484293bf6980b49fbc8, type: 3}
       propertyPath: speed
-      value: 4
+      value: 5.5
       objectReference: {fileID: 0}
     - target: {fileID: 5015120268381650014, guid: 5c0b0c53744c8484293bf6980b49fbc8, type: 3}
       propertyPath: oilInteractable
@@ -10352,7 +10352,7 @@ PrefabInstance:
       objectReference: {fileID: 1572957561}
     - target: {fileID: 5015120268381650014, guid: 5c0b0c53744c8484293bf6980b49fbc8, type: 3}
       propertyPath: timeBeforeMovement
-      value: 0.7
+      value: 0.375
       objectReference: {fileID: 0}
     - target: {fileID: 7983283023153746495, guid: 5c0b0c53744c8484293bf6980b49fbc8, type: 3}
       propertyPath: m_LocalPosition.x
@@ -11557,7 +11557,7 @@ Transform:
   m_LocalScale: {x: 0.007967792, y: 0.007967792, z: 0.007967792}
   m_ConstrainProportionsScale: 1
   m_Children: []
-  m_Father: {fileID: 3577289636713213092}
+  m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!23 &1248308744
 MeshRenderer:
@@ -12828,7 +12828,7 @@ PrefabInstance:
       objectReference: {fileID: 937623916}
     - target: {fileID: 4528541580636494423, guid: 38231e0d8806baa41bdf9179390874e5, type: 3}
       propertyPath: MaxTimeInDarkness
-      value: 15
+      value: 9.5
       objectReference: {fileID: 0}
     - target: {fileID: 6438346792231240245, guid: 38231e0d8806baa41bdf9179390874e5, type: 3}
       propertyPath: m_Name
@@ -20100,3 +20100,4 @@ SceneRoots:
   - {fileID: 1392391911}
   - {fileID: 1613144217}
   - {fileID: 834491008}
+  - {fileID: 1248308743}
