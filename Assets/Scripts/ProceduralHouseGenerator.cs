@@ -18,6 +18,7 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
     private const float VisibilityLateralOffset = 0.45f;
     private const float VisibilityRayTolerance = 0.05f;
     private const float MinimumHiddenGenerationDistance = CellSize * 2.25f;
+    private const float MinimumHiddenGenerationDistanceSqr = MinimumHiddenGenerationDistance * MinimumHiddenGenerationDistance;
     private const float EntryRoomActivationPadding = 0.2f;
     private const int RequiredMainSegmentsAhead = 3;
     private const int MaxGenerationAttemptsPerType = 10;
@@ -35,7 +36,6 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
     private const float HallwayTurnChance = 0.62f;
     private const float HallwaySecondTurnChance = 0.18f;
     private const float HallwayBranchChance = 0.18f;
-    private const float LoopDoorChance = 0f;
     private const float RoomWindowChance = 0.3f;
     private const float HallWindowChance = 0.22f;
 
@@ -72,7 +72,6 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
     private Bounds entryRoomBounds;
     private BoundaryKey entryExitBoundary;
     private BoundaryKey entryFrontBoundary;
-    private int sessionSeed;
     private int currentMainPathIndex;
     private int branchSegmentCount;
     private bool initialized;
@@ -123,6 +122,7 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         }
 
         TryConvertEntryFrontDoorToWindow();
+        UpdateSeenSegments();
         currentMainPathIndex = FindCurrentMainPathIndex(playerTransform.position);
         RecycleStaleSegments();
         PrunePendingFrontiers();
@@ -139,8 +139,7 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         if (playerTransform == null)
             return false;
 
-        sessionSeed = unchecked((int)DateTime.UtcNow.Ticks);
-        random = new System.Random(sessionSeed);
+        random = new System.Random(unchecked((int)DateTime.UtcNow.Ticks));
         initialDirection = GetClosestDirection(playerTransform.forward);
         worldGridOrigin = ComputeInitialOrigin(playerTransform.position, initialDirection);
         BuildEntryAntechamber();
@@ -747,7 +746,6 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         }
 
         AddInternalOpenBoundaries(blueprint);
-        AddLoopDoors(blueprint);
         segment.WorldBounds = bounds;
         segment.ExitFrontier = blueprint.ExitFrontier;
         segment.MinX = minX;
@@ -802,32 +800,6 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
                 Direction direction = AllDirections[directionIndex];
                 if (blueprint.Contains(cell.Step(direction)))
                     openBoundaries.Add(GetCanonicalBoundary(cell, direction));
-            }
-        }
-    }
-
-    private void AddLoopDoors(SegmentBlueprint blueprint)
-    {
-        for (int i = 0; i < blueprint.CellCount; i++)
-        {
-            GridCoord cell = blueprint.Cells[i].Coord;
-            for (int directionIndex = 0; directionIndex < AllDirections.Length; directionIndex++)
-            {
-                Direction direction = AllDirections[directionIndex];
-                GridCoord neighbor = cell.Step(direction);
-                if (!cells.ContainsKey(neighbor) || blueprint.Contains(neighbor))
-                    continue;
-
-                SegmentType neighborType = GetSegmentTypeAt(neighbor);
-                if (blueprint.Type == SegmentType.Room && neighborType == SegmentType.Room)
-                    continue;
-
-                BoundaryKey boundary = GetCanonicalBoundary(cell, direction);
-                if (openBoundaries.Contains(boundary) || doorBoundaries.Contains(boundary))
-                    continue;
-
-                if (random.NextDouble() <= LoopDoorChance)
-                    doorBoundaries.Add(boundary);
             }
         }
     }
@@ -915,7 +887,7 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         if (ignoreVisibility)
             return true;
 
-        if (CanGenerateBehindDoor(boundary))
+        if (CanGenerateBehindOccluder(boundary))
             return true;
 
         Transform referenceTransform = playerCamera != null ? playerCamera.transform : playerTransform;
@@ -924,7 +896,7 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
             Vector3 boundaryPosition = GetBoundaryWorldPosition(boundary.Cell, boundary.Side);
             Vector3 referencePosition = referenceTransform.position;
             Vector2 horizontalDelta = new Vector2(boundaryPosition.x - referencePosition.x, boundaryPosition.z - referencePosition.z);
-            if (horizontalDelta.magnitude < MinimumHiddenGenerationDistance)
+            if (horizontalDelta.sqrMagnitude < MinimumHiddenGenerationDistanceSqr)
                 return false;
         }
 
@@ -1009,14 +981,20 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         if (openBoundaries.Contains(key))
             return BoundaryVisualType.None;
 
-        if (doorBoundaries.Contains(key))
-            return BoundaryVisualType.DoorWall;
-
         if (entryFrontConvertedToWindow &&
             key.Equals(entryFrontBoundary) &&
             (hasA ^ hasB))
         {
             return BoundaryVisualType.WindowWall;
+        }
+
+        if (doorBoundaries.Contains(key))
+        {
+            if (hasA && hasB)
+                return BoundaryVisualType.DoorWall;
+
+            if (ShouldRenderExteriorDoor(key))
+                return BoundaryVisualType.DoorWall;
         }
 
         if (hasA && hasB)
@@ -1132,14 +1110,31 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
             if (!TryGetBestRecycleCandidate(playerSegmentIndex, out int segmentIndex))
                 break;
 
-            if (!TryRecycleSegment(segmentIndex))
+            if (!TryRecycleSegment(segmentIndex, skipHiddenCheck: true))
                 break;
 
             recycledCount++;
         }
     }
 
-    private bool TryRecycleSegment(int segmentIndex)
+    private void UpdateSeenSegments()
+    {
+        Plane[] cameraPlanes = GetCurrentCameraPlanes();
+        if (cameraPlanes == null)
+            return;
+
+        for (int i = 0; i < segments.Count; i++)
+        {
+            SegmentData segment = segments[i];
+            if (segment == null || !segment.IsActive || segment.HasBeenSeen)
+                continue;
+
+            if (IsSegmentSeen(segment, cameraPlanes))
+                segment.HasBeenSeen = true;
+        }
+    }
+
+    private bool TryRecycleSegment(int segmentIndex, bool skipHiddenCheck = false)
     {
         if (segmentIndex <= 0 || segmentIndex >= segments.Count)
             return false;
@@ -1153,20 +1148,22 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         if (protectedBounds.Contains(playerTransform.position))
             return false;
 
-        if (!IsSegmentHidden(segment))
+        if (!skipHiddenCheck && !IsSegmentHidden(segment))
             return false;
 
         int removedMainPathIndex = -1;
         if (segment.IsMainPath)
             removedMainPathIndex = mainPathSegmentIndices.IndexOf(segment.Index);
 
+        HashSet<GridCoord> segmentCellSet = new HashSet<GridCoord>(segment.Cells);
         HashSet<BoundaryKey> affectedBoundaries = new HashSet<BoundaryKey>();
+        HashSet<BoundaryKey> recycleFrontierBoundaries = new HashSet<BoundaryKey>();
         List<Frontier> recycleFrontiers = new List<Frontier>();
 
         for (int i = pendingFrontiers.Count - 1; i >= 0; i--)
         {
             Frontier pending = pendingFrontiers[i].Frontier;
-            if (segment.Cells.Contains(pending.SourceCell))
+            if (segmentCellSet.Contains(pending.SourceCell))
                 pendingFrontiers.RemoveAt(i);
         }
 
@@ -1184,17 +1181,8 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
                     continue;
 
                 Frontier recycleFrontier = new Frontier(neighbor, Opposite(direction));
-                bool exists = false;
-                for (int frontierIndex = 0; frontierIndex < recycleFrontiers.Count; frontierIndex++)
-                {
-                    if (FrontierEquals(recycleFrontiers[frontierIndex], recycleFrontier))
-                    {
-                        exists = true;
-                        break;
-                    }
-                }
-
-                if (!exists)
+                BoundaryKey recycleBoundary = GetCanonicalBoundary(recycleFrontier.SourceCell, recycleFrontier.Direction);
+                if (recycleFrontierBoundaries.Add(recycleBoundary))
                     recycleFrontiers.Add(recycleFrontier);
             }
         }
@@ -1286,11 +1274,33 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         return true;
     }
 
-    private bool CanGenerateBehindDoor(BoundaryKey boundary)
+    private bool IsSegmentSeen(SegmentData segment, Plane[] cameraPlanes)
     {
-        return boundaryVisuals.TryGetValue(boundary, out BoundaryVisualType type) &&
-               type == BoundaryVisualType.DoorWall &&
-               IsExteriorBoundary(boundary);
+        if (segment == null)
+            return false;
+
+        if (!GeometryUtility.TestPlanesAABB(cameraPlanes, segment.WorldBounds))
+            return false;
+
+        for (int i = 0; i < segment.Cells.Count; i++)
+        {
+            Vector3[] samplePoints = GetCellVisibilitySamplePoints(segment.Cells[i]);
+            for (int sampleIndex = 0; sampleIndex < samplePoints.Length; sampleIndex++)
+            {
+                if (IsPointExposedToCamera(samplePoints[sampleIndex], cameraPlanes, null))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool CanGenerateBehindOccluder(BoundaryKey boundary)
+    {
+        return IsExteriorBoundary(boundary) &&
+               boundaryVisuals.TryGetValue(boundary, out BoundaryVisualType type) &&
+               type != BoundaryVisualType.None &&
+               type != BoundaryVisualType.WindowWall;
     }
 
     private void PrunePendingFrontiers()
@@ -1325,7 +1335,7 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
 
     private GameObject GetGenerationCoverObject(BoundaryKey entranceBoundary)
     {
-        if (!boundaryVisuals.TryGetValue(entranceBoundary, out BoundaryVisualType type) || type != BoundaryVisualType.DoorWall)
+        if (!CanGenerateBehindOccluder(entranceBoundary))
             return null;
 
         boundaryObjects.TryGetValue(entranceBoundary, out GameObject coverObject);
@@ -1435,6 +1445,12 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
             return false;
 
         return HasOutdoorViewClearance(cell.Coord, exteriorSide);
+    }
+
+    private bool ShouldRenderExteriorDoor(BoundaryKey boundary)
+    {
+        return (boundary.Equals(entryFrontBoundary) && !entryFrontConvertedToWindow) ||
+               boundary.Equals(entryExitBoundary);
     }
 
     private bool WouldExceedLiveCellCap(SegmentBlueprint blueprint)
@@ -1567,6 +1583,12 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
             }
 
             return false;
+        }
+
+        if (segment.HasBeenSeen && graphDistance > 1)
+        {
+            priority = 8 + graphDistance;
+            return true;
         }
 
         if (graphDistance <= 1)
@@ -1973,17 +1995,6 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         }
     }
 
-    private void Shuffle(Direction[] list)
-    {
-        for (int i = list.Length - 1; i > 0; i--)
-        {
-            int swapIndex = random.Next(i + 1);
-            Direction temp = list[i];
-            list[i] = list[swapIndex];
-            list[swapIndex] = temp;
-        }
-    }
-
     private enum Direction
     {
         North = 0,
@@ -2202,6 +2213,8 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         public bool IsActive { get; set; }
 
         public bool IsMainPath { get; set; }
+
+        public bool HasBeenSeen { get; set; }
 
         public Transform Root { get; set; }
 
