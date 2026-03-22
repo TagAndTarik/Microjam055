@@ -28,6 +28,7 @@ public class HeldItemSocket : MonoBehaviour
     private Transform holdAnchor;
     private PickupInteractable heldItem;
     private int heldItemLayer = -1;
+    private RenderTexture holdRenderTexture;
     private Vector3 currentJostleOffset;
     private Vector3 lastSocketPosition;
     private bool hasLastSocketPosition;
@@ -43,7 +44,14 @@ public class HeldItemSocket : MonoBehaviour
 
     private void LateUpdate()
     {
+        EnsureHoldRenderTarget();
         UpdateAnchorTransform();
+    }
+
+    private void OnDestroy()
+    {
+        ReleaseHoldRenderTarget();
+        SetMainCameraOverlayTexture(null);
     }
 
     private void OnValidate()
@@ -130,6 +138,7 @@ public class HeldItemSocket : MonoBehaviour
 
         EnsureHoldCamera();
         EnsureHoldAnchor();
+        EnsureHoldRenderTarget();
 
         playerCamera.cullingMask &= ~(1 << heldItemLayer);
         holdCamera.cullingMask = 1 << heldItemLayer;
@@ -180,7 +189,6 @@ public class HeldItemSocket : MonoBehaviour
         holdCamera.transform.localScale = Vector3.one;
 
         holdCamera.enabled = true;
-        holdCamera.clearFlags = CameraClearFlags.Depth;
         holdCamera.nearClipPlane = 0.01f;
         holdCamera.farClipPlane = Mathf.Max(2f, holdDistance + 2f);
         holdCamera.depth = playerCamera.depth + 1f;
@@ -190,6 +198,7 @@ public class HeldItemSocket : MonoBehaviour
         holdCamera.orthographicSize = playerCamera.orthographicSize;
         holdCamera.fieldOfView = playerCamera.fieldOfView;
         holdCamera.backgroundColor = Color.clear;
+        holdCamera.clearFlags = CanCompositeHeldCamera() ? CameraClearFlags.SolidColor : CameraClearFlags.Depth;
 
         ConfigureUniversalCameraStackIfAvailable();
     }
@@ -281,6 +290,45 @@ public class HeldItemSocket : MonoBehaviour
         holdAnchor.localScale = Vector3.one;
     }
 
+    private void EnsureHoldRenderTarget()
+    {
+        if (holdCamera == null || playerCamera == null)
+            return;
+
+        if (!CanCompositeHeldCamera())
+        {
+            holdCamera.targetTexture = null;
+            holdCamera.clearFlags = CameraClearFlags.Depth;
+            SetMainCameraOverlayTexture(null);
+            ReleaseHoldRenderTarget();
+            return;
+        }
+
+        int targetWidth = Mathf.Max(1, playerCamera.pixelWidth > 0 ? playerCamera.pixelWidth : Screen.width);
+        int targetHeight = Mathf.Max(1, playerCamera.pixelHeight > 0 ? playerCamera.pixelHeight : Screen.height);
+
+        if (holdRenderTexture == null ||
+            holdRenderTexture.width != targetWidth ||
+            holdRenderTexture.height != targetHeight)
+        {
+            ReleaseHoldRenderTarget();
+
+            holdRenderTexture = new RenderTexture(targetWidth, targetHeight, 16, RenderTextureFormat.ARGB32)
+            {
+                name = "Held Item Overlay RT",
+                filterMode = FilterMode.Point,
+                useMipMap = false,
+                autoGenerateMips = false
+            };
+            holdRenderTexture.Create();
+        }
+
+        holdCamera.clearFlags = CameraClearFlags.SolidColor;
+        holdCamera.backgroundColor = Color.clear;
+        holdCamera.targetTexture = holdRenderTexture;
+        SetMainCameraOverlayTexture(holdRenderTexture);
+    }
+
     private Vector3 CalculateHeldLampJostleOffset()
     {
         Vector3 targetOffset = Vector3.zero;
@@ -332,5 +380,31 @@ public class HeldItemSocket : MonoBehaviour
         return heldItem.GetComponent<WarmLightInteractable>() != null ||
                heldItem.GetComponentInParent<WarmLightInteractable>() != null ||
                heldItem.GetComponentInChildren<WarmLightInteractable>(true) != null;
+    }
+
+    private bool CanCompositeHeldCamera()
+    {
+        ScreenWaveEffect effect = playerCamera != null ? playerCamera.GetComponent<ScreenWaveEffect>() : null;
+        return effect != null && effect.material != null;
+    }
+
+    private void SetMainCameraOverlayTexture(Texture overlayTexture)
+    {
+        if (playerCamera == null)
+            return;
+
+        ScreenWaveEffect effect = playerCamera.GetComponent<ScreenWaveEffect>();
+        if (effect != null)
+            effect.SetOverlayTexture(overlayTexture);
+    }
+
+    private void ReleaseHoldRenderTarget()
+    {
+        if (holdRenderTexture == null)
+            return;
+
+        holdRenderTexture.Release();
+        Destroy(holdRenderTexture);
+        holdRenderTexture = null;
     }
 }

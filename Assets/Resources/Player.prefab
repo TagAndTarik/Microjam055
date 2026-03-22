@@ -151,7 +151,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b94e9cc6d32bc5049a558d3d2a1c2086, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ScreenWaveEffect
-  material: {fileID: 2100000, guid: d23cc3d60ef2da7469f71e989e06b914, type: 2}
+  material: {fileID: 2100000, guid: 27efd7b7b1b0484dbe3faa8c5a3ccbc1, type: 2}
 --- !u!114 &362152926864889673
 MonoBehaviour:
   m_ObjectHideFlags: 0
