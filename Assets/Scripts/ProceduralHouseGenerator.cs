@@ -101,6 +101,7 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
     private Bounds entryRoomBounds;
     private BoundaryKey entryExitBoundary;
     private BoundaryKey entryFrontBoundary;
+    private Transform entryDoorwayMarker;
     private int currentMainPathIndex;
     private int branchSegmentCount;
     private bool initialized;
@@ -121,15 +122,28 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         generatorObject.AddComponent<ProceduralHouseGenerator>();
     }
 
-    private void Start()
+    public static bool SpawnEntryAntechamberAtMarker(Transform doorwayMarker)
     {
-        if (!TryInitialize())
+        if (doorwayMarker == null)
+            return false;
+
+        ProceduralHouseGenerator generator = FindObjectOfType<ProceduralHouseGenerator>();
+        if (generator == null)
         {
-            Destroy(gameObject);
-            return;
+            GameObject generatorObject = new GameObject("Procedural House Generator");
+            generator = generatorObject.AddComponent<ProceduralHouseGenerator>();
         }
 
-        initialized = true;
+        generator.entryDoorwayMarker = doorwayMarker;
+        return generator.EnsureInitialized();
+    }
+
+    private void Start()
+    {
+        if (initialized)
+            return;
+
+        EnsureInitialized();
     }
 
     private void Update()
@@ -164,13 +178,28 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
             return false;
 
         ResolvePlayerReferences();
-        if (playerTransform == null)
+        if (!TryResolveEntryPlacement(out Vector3 entryOrigin, out Direction entryDirection))
             return false;
 
         random = new System.Random(unchecked((int)DateTime.UtcNow.Ticks));
-        initialDirection = GetClosestDirection(playerTransform.forward);
-        worldGridOrigin = ComputeInitialOrigin(playerTransform.position, initialDirection);
+        initialDirection = entryDirection;
+        worldGridOrigin = entryOrigin;
         BuildEntryAntechamber();
+        return true;
+    }
+
+    private bool EnsureInitialized()
+    {
+        if (initialized)
+            return true;
+
+        if (!TryInitialize())
+        {
+            Destroy(gameObject);
+            return false;
+        }
+
+        initialized = true;
         return true;
     }
 
@@ -326,6 +355,31 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
 
         generationStarted = true;
         EnsureGenerationBuffers(false);
+    }
+
+    private bool TryResolveEntryPlacement(out Vector3 entryOrigin, out Direction entryDirection)
+    {
+        if (entryDoorwayMarker != null)
+        {
+            Direction exteriorDirection = GetClosestDirection(entryDoorwayMarker.forward);
+            entryDirection = Opposite(exteriorDirection);
+
+            Vector3 doorwayPosition = entryDoorwayMarker.position;
+            doorwayPosition.y -= FloorHeight * 0.5f;
+            entryOrigin = doorwayPosition + GetDirectionVector(entryDirection) * HalfCellSize;
+            return true;
+        }
+
+        if (playerTransform == null)
+        {
+            entryOrigin = default;
+            entryDirection = Direction.North;
+            return false;
+        }
+
+        entryDirection = GetClosestDirection(playerTransform.forward);
+        entryOrigin = ComputeInitialOrigin(playerTransform.position, entryDirection);
+        return true;
     }
 
     private void TryConvertEntryFrontDoorToWindow()

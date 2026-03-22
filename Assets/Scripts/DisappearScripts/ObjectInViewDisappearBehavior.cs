@@ -15,8 +15,7 @@ public class ObjectInViewDisappearBehavior : BaseDisappearBehavior
                     if(ObjectsToDisappear[i] != null)
                         ObjectsToDisappear[i].SetActive(false);
                 }
-                if (ObjectToAppear != null)
-                    ObjectToAppear.SetActive(true);
+                ActivateAppearTargets();
                 base.SpawnSFX();
 
             }
