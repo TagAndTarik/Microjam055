@@ -26,7 +26,13 @@ public class WarmLightInteractable : MonoBehaviour, IInteractable
     [SerializeField] private bool enablePickupAfterLighting = true;
     [SerializeField] private PickupInteractable pickupInteractable;
 
+    [Header("Lamp Glass")]
+    [SerializeField] private string glassPartName = "Cube.004";
+    [SerializeField] private Material unlitGlassMaterial;
+
     private bool isLit;
+    private Renderer glassPartRenderer;
+    private Material[] litGlassPartMaterials;
 
     private void Awake()
     {
@@ -39,6 +45,8 @@ public class WarmLightInteractable : MonoBehaviour, IInteractable
         pickupInteractable = ResolvePickupInteractable();
         targetLight = ResolveTargetLight();
         isLit = targetLight != null && targetLight.enabled;
+        CaptureLitGlassPartMaterials();
+        ApplyLampGlassState();
         UpdatePickupAvailability();
     }
 
@@ -94,6 +102,7 @@ public class WarmLightInteractable : MonoBehaviour, IInteractable
         ConfigureLight(targetLight);
         targetLight.enabled = true;
         isLit = true;
+        ApplyLampGlassState();
         outline?.SetOutlined(false);
         EnablePickupIfConfigured();
     }
@@ -114,6 +123,60 @@ public class WarmLightInteractable : MonoBehaviour, IInteractable
 
         pickupInteractable = GetComponent<PickupInteractable>();
         return pickupInteractable;
+    }
+
+    private Renderer ResolveGlassPartRenderer()
+    {
+        if (glassPartRenderer != null)
+            return glassPartRenderer;
+
+        if (string.IsNullOrWhiteSpace(glassPartName))
+            return null;
+
+        Transform glassPartTransform = FindDescendantByName(transform, glassPartName.Trim());
+        if (glassPartTransform == null)
+            return null;
+
+        glassPartRenderer = glassPartTransform.GetComponent<Renderer>();
+        return glassPartRenderer;
+    }
+
+    private void CaptureLitGlassPartMaterials()
+    {
+        Renderer targetRenderer = ResolveGlassPartRenderer();
+        if (targetRenderer == null)
+            return;
+
+        Material[] currentMaterials = targetRenderer.sharedMaterials;
+        if (currentMaterials == null || currentMaterials.Length == 0)
+            return;
+
+        litGlassPartMaterials = (Material[])currentMaterials.Clone();
+    }
+
+    private void ApplyLampGlassState()
+    {
+        Renderer targetRenderer = ResolveGlassPartRenderer();
+        if (targetRenderer == null)
+            return;
+
+        if (isLit)
+        {
+            if (litGlassPartMaterials != null && litGlassPartMaterials.Length > 0)
+                targetRenderer.sharedMaterials = (Material[])litGlassPartMaterials.Clone();
+
+            return;
+        }
+
+        if (unlitGlassMaterial == null)
+            return;
+
+        int materialCount = Mathf.Max(1, targetRenderer.sharedMaterials.Length);
+        Material[] glassMaterials = new Material[materialCount];
+        for (int i = 0; i < glassMaterials.Length; i++)
+            glassMaterials[i] = unlitGlassMaterial;
+
+        targetRenderer.sharedMaterials = glassMaterials;
     }
 
     private Light CreateTargetLight()
@@ -168,6 +231,25 @@ public class WarmLightInteractable : MonoBehaviour, IInteractable
 
         pickup.enabled = true;
         enabled = false;
+    }
+
+    private static Transform FindDescendantByName(Transform root, string targetName)
+    {
+        if (root == null)
+            return null;
+
+        for (int i = 0; i < root.childCount; i++)
+        {
+            Transform child = root.GetChild(i);
+            if (string.Equals(child.name, targetName, System.StringComparison.Ordinal))
+                return child;
+
+            Transform descendant = FindDescendantByName(child, targetName);
+            if (descendant != null)
+                return descendant;
+        }
+
+        return null;
     }
 
     private static bool IsUnsetColor(Color color)
