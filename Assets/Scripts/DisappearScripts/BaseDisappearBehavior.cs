@@ -7,6 +7,8 @@ public abstract class BaseDisappearBehavior : MonoBehaviour
     protected bool madeSFX = false;
     public Renderer disappearRenderer;
     public GameObject ObjectToAppear;
+    public bool spawnProceduralHouseAntechamber;
+    public Transform proceduralHouseAntechamberLocation;
     public PickupInteractable pickupInteractable;
     public OilInteractable oilInteractable;
 
@@ -43,6 +45,20 @@ public abstract class BaseDisappearBehavior : MonoBehaviour
     public virtual void StartDisappearing()
     {
         initiated = true;
+    }
+
+    protected void ActivateAppearTargets()
+    {
+        if (ObjectToAppear != null)
+            ObjectToAppear.SetActive(true);
+
+        if (!spawnProceduralHouseAntechamber)
+            return;
+
+        if (!ProceduralHouseGenerator.SpawnEntryAntechamberAtMarker(proceduralHouseAntechamberLocation))
+        {
+            Debug.LogWarning($"Failed to place procedural house antechamber for {gameObject.name}.", this);
+        }
     }
 
     public virtual void SpawnSFX()
