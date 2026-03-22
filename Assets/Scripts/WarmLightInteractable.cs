@@ -36,6 +36,8 @@ public class WarmLightInteractable : MonoBehaviour, IInteractable
 
     private void Awake()
     {
+        EnsureLampSwingPhysics();
+
         if (outline == null)
             outline = GetComponent<InteractableOutline>();
 
@@ -231,6 +233,20 @@ public class WarmLightInteractable : MonoBehaviour, IInteractable
 
         pickup.enabled = true;
         enabled = false;
+    }
+
+    private void EnsureLampSwingPhysics()
+    {
+        if (GetComponent<HeldLampPlanePhysics>() != null)
+            return;
+
+        if (FindDescendantByName(transform, "Plane.005") == null ||
+            FindDescendantByName(transform, "hinge") == null)
+        {
+            return;
+        }
+
+        gameObject.AddComponent<HeldLampPlanePhysics>();
     }
 
     private static Transform FindDescendantByName(Transform root, string targetName)

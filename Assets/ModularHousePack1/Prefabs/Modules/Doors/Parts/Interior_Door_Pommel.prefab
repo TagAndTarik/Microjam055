@@ -70,7 +70,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: f8678973d67fbc840b427e67d8a12e1f, type: 2}
+  - {fileID: 2100000, guid: e69da479c65ecbd408f252aef2843ae6, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -124,9 +124,17 @@ BoxCollider:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1444540159997871375}
   m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
   m_IsTrigger: 1
+  m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 2
+  serializedVersion: 3
   m_Size: {x: 0.22, y: 0.18, z: 0.22}
   m_Center: {x: 0, y: 0, z: 0}
 --- !u!114 &3456789012345678902
@@ -142,7 +150,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DoorHandleInteractable
   doorController: {fileID: 0}
-  outline: {fileID: 0}
+  outline: {fileID: 3456789012345678904}
+  hoverMessage: 
+  hoverMessageFont: {fileID: 0}
+  hoverMessageFontSize: 18
+  hoverMessageColor: {r: 1, g: 1, b: 1, a: 0.95}
   turnAngle: 30
   turnDuration: 0.12
   localTurnAxis: {x: 0, y: 0, z: 1}
@@ -160,4 +172,3 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::InteractableOutline
   targetRenderers:
   - {fileID: 9220643239915826156}
-  outlineScale: 1.1
