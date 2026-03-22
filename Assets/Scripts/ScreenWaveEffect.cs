@@ -12,4 +12,12 @@ public class ScreenWaveEffect : MonoBehaviour
         else
             Graphics.Blit(src, dest);
     }
+
+    public void SetProperties(ScreenEffectSettings settings)
+    {
+        material.SetFloat("_Intensity", settings.GlitchIntensity);
+        material.SetFloat("_ScanlineStrength", settings.ScanlineStrength);
+        material.SetFloat("_ColorOffset", settings.ColorOffset);
+
+    }
 }

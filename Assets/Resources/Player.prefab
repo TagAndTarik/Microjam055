@@ -259,7 +259,7 @@ MonoBehaviour:
   playerCamera: {fileID: 0}
   moveSpeed: 4
   jumpHeight: 0
-  gravity: -5
+  gravity: -1
   mouseSensitivity: 0.1
   maxLookAngle: 80
   cameraNearClipPlane: 0.03
@@ -282,6 +282,20 @@ MonoBehaviour:
   playerMessageSize: {x: 620, y: 110}
   playerMessageFontSize: 34
   playerMessageColor: {r: 1, g: 0.18, b: 0.18, a: 1}
+  bufferBetweenCompleteDarkness: 0.225
+  screenEffectSettings:
+    GlitchIntensity: 0
+    ScanlineStrength: 0
+    ColorOffset: 0
+  startSettings:
+    GlitchIntensity: 0
+    ScanlineStrength: 0
+    ColorOffset: 0.002
+  maxSettings:
+    GlitchIntensity: 0.19
+    ScanlineStrength: 0.07
+    ColorOffset: 0.05
+  screenEffectFactor: 0.009
 --- !u!114 &7642575765247377595
 MonoBehaviour:
   m_ObjectHideFlags: 0

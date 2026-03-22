@@ -1,8 +1,39 @@
+using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.UI;
+
+[Serializable]
+public class ScreenEffectSettings 
+{
+    public float GlitchIntensity;
+    public float ScanlineStrength;
+    public float ColorOffset;
+
+    public void IncramentalUpdateSetting(float deltaGlitch, float deltaScanline, float deltaColorOffset)
+    {
+        GlitchIntensity = Mathf.Clamp01(GlitchIntensity + deltaGlitch);
+        ScanlineStrength = Mathf.Clamp01(ScanlineStrength + deltaScanline);
+        ColorOffset = Mathf.Clamp01(ColorOffset + deltaColorOffset);
+    }   
+
+    public void CopySettings(ScreenEffectSettings otherSettings)
+    {
+        GlitchIntensity = otherSettings.GlitchIntensity;
+        ScanlineStrength = otherSettings.ScanlineStrength;
+        ColorOffset = otherSettings.ColorOffset;
+    }
+
+    public void LerpToNewSettings(ScreenEffectSettings startingSettings, ScreenEffectSettings otherSettings, float alpha)
+    {
+        GlitchIntensity = Mathf.Lerp(startingSettings.GlitchIntensity, otherSettings.GlitchIntensity, alpha);
+        ScanlineStrength = Mathf.Lerp(startingSettings.ScanlineStrength, otherSettings.ScanlineStrength, alpha);
+        ColorOffset = Mathf.Lerp(startingSettings.ColorOffset, otherSettings.ColorOffset, alpha);
+    }
+}
+
 
 [RequireComponent(typeof(CharacterController))]
 public class SimpleFirstPersonController : MonoBehaviour
@@ -16,7 +47,7 @@ public class SimpleFirstPersonController : MonoBehaviour
     private const int DefaultPlayerMessageFontSize = 22;
     private const float HeldLampVisibilityMultiplier = 2f;
     private const float MinimumVisibilityMultiplier = 0.01f;
-    private const float VisibilityDecayDuration = 60f;
+    private const float VisibilityDecayDuration = 10f;
     private static readonly Color DefaultHoverPromptColor = new Color(1f, 1f, 1f, 0.95f);
     private static readonly Color DefaultPlayerMessageColor = new Color(1f, 1f, 1f, 0.96f);
 
@@ -60,6 +91,16 @@ public class SimpleFirstPersonController : MonoBehaviour
     [SerializeField] private int playerMessageFontSize = DefaultPlayerMessageFontSize;
     [SerializeField] private Color playerMessageColor = DefaultPlayerMessageColor;
 
+    [Header("Screen Settings")]
+    [SerializeField] private float bufferBetweenCompleteDarkness = 0.35f;
+    [SerializeField] private ScreenEffectSettings screenEffectSettings;
+    [SerializeField] private ScreenEffectSettings startSettings;
+    [SerializeField] private ScreenEffectSettings maxSettings;
+    [SerializeField] private float screenEffectFactor = 0.05f;
+
+    private float screenWackyAlpha = 0f;
+
+
     private CharacterController controller;
     private IInteractable currentInteractable;
     private Canvas crosshairCanvas;
@@ -83,6 +124,7 @@ public class SimpleFirstPersonController : MonoBehaviour
     private string activePlayerMessage = string.Empty;
     private Color limitedVisibilityFogColor;
     private HeldItemSocket heldItemSocket;
+    private float progress;
 
     private void Awake()
     {
@@ -102,6 +144,7 @@ public class SimpleFirstPersonController : MonoBehaviour
 
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
+        screenEffectSettings.CopySettings(startSettings);
     }
 
     private void OnEnable()
@@ -118,6 +161,7 @@ public class SimpleFirstPersonController : MonoBehaviour
         UpdateLimitedVisibility();
         UpdatePlayerMessage();
         Move();
+        UpdateShader();
     }
 
     private void OnDisable()
@@ -221,7 +265,8 @@ public class SimpleFirstPersonController : MonoBehaviour
             return 1f;
 
         float elapsed = Mathf.Max(0f, Time.time - limitedVisibilityStartTime);
-        float progress = Mathf.Clamp01(elapsed / VisibilityDecayDuration);
+        progress = Mathf.Clamp01(elapsed / VisibilityDecayDuration) - bufferBetweenCompleteDarkness;
+        
         return Mathf.Lerp(1f, MinimumVisibilityMultiplier, progress);
     }
 
@@ -763,5 +808,22 @@ public class SimpleFirstPersonController : MonoBehaviour
         }
 
         return null;
+    }
+
+    private void UpdateShader()
+    {
+        if(progress >= 1 - bufferBetweenCompleteDarkness - 0.05f)
+        {
+            //Debug.Log("Player has reached complete darkness.");
+            if(screenWackyAlpha < 1f)
+                screenWackyAlpha += Time.fixedDeltaTime * screenEffectFactor;
+            else
+            {
+                screenWackyAlpha = 1f;
+            }
+            screenEffectSettings.LerpToNewSettings(startSettings, maxSettings, screenWackyAlpha);
+        }
+
+        GetComponentInChildren<ScreenWaveEffect>().SetProperties(screenEffectSettings);
     }
 }
