@@ -45,8 +45,8 @@ Camera:
   m_GameObject: {fileID: 2314841482178750189}
   m_Enabled: 1
   serializedVersion: 2
-  m_ClearFlags: 1
-  m_BackGroundColor: {r: 0.19215687, g: 0.3019608, b: 0.4745098, a: 0}
+  m_ClearFlags: 2
+  m_BackGroundColor: {r: 0, g: 0, b: 0, a: 0}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
   m_FOVAxisMode: 0
@@ -152,6 +152,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ScreenWaveEffect
   material: {fileID: 2100000, guid: 27efd7b7b1b0484dbe3faa8c5a3ccbc1, type: 2}
+  overlayTexture: {fileID: 0}
 --- !u!114 &362152926864889673
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -325,6 +326,12 @@ MonoBehaviour:
   mouseSensitivity: 0.1
   maxLookAngle: 80
   cameraNearClipPlane: 0.03
+  enableViewBob: 1
+  viewBobFrequency: 1.8
+  viewBobVerticalAmplitude: 0.045
+  viewBobHorizontalAmplitude: 0.018
+  viewBobSmoothing: 12
+  minimumBobSpeed: 0.1
   interactDistance: 2
   interactMask:
     serializedVersion: 2
