@@ -19,11 +19,11 @@ public class LightsOffInteractable : MonoBehaviour, IInteractable
     [SerializeField] private GameObject frontDoorWallObject;
     [Header("Darkness")]
     [SerializeField] private bool darkenEnvironmentOnInteract = true;
-    [SerializeField] private Color targetAmbientSkyColor = new Color(0.045f, 0.048f, 0.058f, 1f);
-    [SerializeField] private Color targetAmbientEquatorColor = new Color(0.035f, 0.038f, 0.048f, 1f);
-    [SerializeField] private Color targetAmbientGroundColor = new Color(0.012f, 0.011f, 0.013f, 1f);
-    [SerializeField, Range(0f, 1f)] private float targetAmbientIntensity = 0.45f;
-    [SerializeField, Range(0f, 1f)] private float targetReflectionIntensity = 0.18f;
+    [SerializeField] private Color targetAmbientSkyColor = new Color(0.032f, 0.035f, 0.044f, 1f);
+    [SerializeField] private Color targetAmbientEquatorColor = new Color(0.024f, 0.027f, 0.034f, 1f);
+    [SerializeField] private Color targetAmbientGroundColor = new Color(0.007f, 0.006f, 0.008f, 1f);
+    [SerializeField, Range(0f, 1f)] private float targetAmbientIntensity = 0.28f;
+    [SerializeField, Range(0f, 1f)] private float targetReflectionIntensity = 0.1f;
     [SerializeField, TextArea] private string hoverMessage = "Sleep";
     [SerializeField, TextArea] private string postInteractMessage = "My lamp is in the attic";
     [SerializeField] private float postInteractMessageDuration = 4.5f;

@@ -19,7 +19,7 @@ public class WarmLightInteractable : MonoBehaviour, IInteractable
     [SerializeField] private Color lightColor = new Color(1f, 0.73f, 0.48f, 1f);
     [SerializeField, Min(0f)] private float lightIntensity = 1.6f;
     [SerializeField, Min(0f)] private float lightRange = 4.5f;
-    [SerializeField] private bool castShadows;
+    [SerializeField] private bool castShadows = true;
 
     private bool isLit;
 
