@@ -20,6 +20,22 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
     private const float MinimumHiddenGenerationDistance = CellSize * 2.25f;
     private const float MinimumHiddenGenerationDistanceSqr = MinimumHiddenGenerationDistance * MinimumHiddenGenerationDistance;
     private const float EntryRoomActivationPadding = 0.2f;
+    private const float FurnitureWallInset = 0.04f;
+    private const float DecorationFitInset = 0.02f;
+    private const float WalkwayClearanceSize = 0.82f;
+    private const float DoorwayClearanceDepth = 0.5f;
+    private const float CeilingDecorationOffset = 0.08f;
+    private const float HangingLightScaleFactor = 0.68f;
+    private const double HallToRoomChance = 0.72d;
+    private const double RoomCurtainChance = 0.5d;
+    private const double RoomLightChance = 0.5d;
+    private const double HallLightChance = 0.34d;
+    private const double RoomFurnitureChance = 0.88d;
+    private const double HallFurnitureChance = 0.55d;
+    private const double TablePreferenceChance = 0.5d;
+    private const double TableChairChance = 0.55d;
+    private const double SmallRoomChairChance = 0.75d;
+    private const int LargeRoomMinCellCountForBed = 6;
     private const int RequiredMainSegmentsAhead = 3;
     private const int MaxGenerationAttemptsPerType = 10;
     private const int BranchSegmentsPerMainSegment = 1;
@@ -36,8 +52,8 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
     private const float HallwayTurnChance = 0.62f;
     private const float HallwaySecondTurnChance = 0.18f;
     private const float HallwayBranchChance = 0.18f;
-    private const float RoomWindowChance = 0.3f;
-    private const float HallWindowChance = 0.22f;
+    private const float RoomWindowChance = 0.42f;
+    private const float HallWindowChance = 0.3f;
 
     private static readonly Direction[] AllDirections =
     {
@@ -57,11 +73,18 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
     private readonly List<int> mainPathSegmentIndices = new List<int>();
     private readonly List<PendingFrontier> pendingFrontiers = new List<PendingFrontier>();
 
-    private GameObject floorPrefab;
-    private GameObject wallPrefab;
-    private GameObject ceilingPrefab;
-    private GameObject doorWallPrefab;
-    private GameObject windowWallPrefab;
+    private readonly List<GameObject> floorPrefabs = new List<GameObject>();
+    private readonly List<GameObject> wallPrefabs = new List<GameObject>();
+    private readonly List<GameObject> ceilingPrefabs = new List<GameObject>();
+    private readonly List<GameObject> doorWallPrefabs = new List<GameObject>();
+    private readonly List<GameObject> windowWallPrefabs = new List<GameObject>();
+    private readonly List<GameObject> hangingLightPrefabs = new List<GameObject>();
+    private readonly List<GameObject> tablePrefabs = new List<GameObject>();
+    private readonly List<GameObject> dresserPrefabs = new List<GameObject>();
+    private readonly List<GameObject> chairPrefabs = new List<GameObject>();
+    private readonly List<GameObject> bedPrefabs = new List<GameObject>();
+    private readonly List<GameObject> tableItemPrefabs = new List<GameObject>();
+    private readonly List<GameObject> curtainPrefabs = new List<GameObject>();
 
     private System.Random random;
     private Transform playerTransform;
@@ -148,17 +171,81 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
 
     private bool LoadPrefabs()
     {
-        floorPrefab = Resources.Load<GameObject>(ResourceFolder + "Floor");
-        wallPrefab = Resources.Load<GameObject>(ResourceFolder + "Wall");
-        ceilingPrefab = Resources.Load<GameObject>(ResourceFolder + "Ceiling");
-        doorWallPrefab = Resources.Load<GameObject>(ResourceFolder + "DoorWall");
-        windowWallPrefab = Resources.Load<GameObject>(ResourceFolder + "WindowWall");
+        GameObject[] loadedPrefabs = Resources.LoadAll<GameObject>(ResourceFolder);
+        if (loadedPrefabs == null || loadedPrefabs.Length == 0)
+            return false;
 
-        return floorPrefab != null &&
-               wallPrefab != null &&
-               ceilingPrefab != null &&
-               doorWallPrefab != null &&
-               windowWallPrefab != null;
+        floorPrefabs.Clear();
+        wallPrefabs.Clear();
+        ceilingPrefabs.Clear();
+        doorWallPrefabs.Clear();
+        windowWallPrefabs.Clear();
+        hangingLightPrefabs.Clear();
+        tablePrefabs.Clear();
+        dresserPrefabs.Clear();
+        chairPrefabs.Clear();
+        bedPrefabs.Clear();
+        tableItemPrefabs.Clear();
+        curtainPrefabs.Clear();
+
+        LoadPrefabPool(loadedPrefabs, "Floor", floorPrefabs);
+        LoadPrefabPool(loadedPrefabs, "Wall", wallPrefabs);
+        LoadPrefabPool(loadedPrefabs, "Ceiling", ceilingPrefabs);
+        LoadPrefabPool(loadedPrefabs, "DoorWall", doorWallPrefabs);
+        LoadPrefabPool(loadedPrefabs, "WindowWall", windowWallPrefabs);
+        LoadPrefabPool(loadedPrefabs, "HangingLight", hangingLightPrefabs);
+        LoadPrefabPool(loadedPrefabs, "TableItem", tableItemPrefabs);
+        LoadPrefabPool(loadedPrefabs, "Table", tablePrefabs, "TableItem");
+        LoadPrefabPool(loadedPrefabs, "Dresser", dresserPrefabs);
+        LoadPrefabPool(loadedPrefabs, "Chair", chairPrefabs);
+        LoadPrefabPool(loadedPrefabs, "Bed", bedPrefabs);
+        LoadPrefabPool(loadedPrefabs, "Curtains", curtainPrefabs);
+
+        return floorPrefabs.Count > 0 &&
+               wallPrefabs.Count > 0 &&
+               ceilingPrefabs.Count > 0 &&
+               doorWallPrefabs.Count > 0 &&
+               windowWallPrefabs.Count > 0;
+    }
+
+    private static void LoadPrefabPool(
+        IEnumerable<GameObject> loadedPrefabs,
+        string prefix,
+        List<GameObject> target,
+        string excludedPrefix = null)
+    {
+        foreach (GameObject prefab in loadedPrefabs)
+        {
+            if (prefab == null || string.IsNullOrEmpty(prefab.name))
+                continue;
+
+            if (!prefab.name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            if (!string.IsNullOrEmpty(excludedPrefix) &&
+                prefab.name.StartsWith(excludedPrefix, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            target.Add(prefab);
+        }
+
+        target.Sort((left, right) => string.Compare(left.name, right.name, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private GameObject GetRandomPrefab(IReadOnlyList<GameObject> prefabs)
+    {
+        if (prefabs == null || prefabs.Count == 0)
+            return null;
+
+        return prefabs[random.Next(prefabs.Count)];
+    }
+
+    private GameObject InstantiateRandomPrefab(IReadOnlyList<GameObject> prefabs, Vector3 position, Quaternion rotation, Transform parent)
+    {
+        GameObject prefab = GetRandomPrefab(prefabs);
+        return prefab == null ? null : Instantiate(prefab, position, rotation, parent);
     }
 
     private void ResolvePlayerReferences()
@@ -416,6 +503,7 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
             branchSegmentCount++;
 
         RefreshBoundariesForSegment(segment.Cells, entranceFrontier, blueprint);
+        DecorateSegment(segment);
         return segment;
     }
 
@@ -466,7 +554,7 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
             return false;
         }
 
-        SegmentType firstType = random.NextDouble() < 0.62d ? SegmentType.Room : SegmentType.Hallway;
+        SegmentType firstType = random.NextDouble() < HallToRoomChance ? SegmentType.Room : SegmentType.Hallway;
         SegmentType secondType = firstType == SegmentType.Room ? SegmentType.Hallway : SegmentType.Room;
 
         for (int attempt = 0; attempt < MaxGenerationAttemptsPerType; attempt++)
@@ -753,6 +841,10 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         segment.MinZ = minZ;
         segment.MaxZ = maxZ;
         segment.WindowPattern = DetermineWindowPattern(blueprint.Type);
+        segment.HasCurtains = blueprint.Type == SegmentType.Room &&
+                              segment.WindowPattern != WindowPattern.None &&
+                              curtainPrefabs.Count > 0 &&
+                              random.NextDouble() < RoomCurtainChance;
         return segment;
     }
 
@@ -763,9 +855,9 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         cellRoot.transform.SetParent(segment.Root, false);
         cellRoot.transform.position = worldPosition;
 
-        Instantiate(floorPrefab, worldPosition, Quaternion.identity, cellRoot.transform);
+        InstantiateRandomPrefab(floorPrefabs, worldPosition, Quaternion.identity, cellRoot.transform);
         GameObject ceilingInstance = Instantiate(
-            ceilingPrefab,
+            GetRandomPrefab(ceilingPrefabs),
             worldPosition + Vector3.up * FloorHeight,
             Quaternion.identity,
             cellRoot.transform);
@@ -788,6 +880,517 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         Collider[] colliders = root.GetComponentsInChildren<Collider>(true);
         for (int i = 0; i < colliders.Length; i++)
             colliders[i].enabled = false;
+    }
+
+    private static void DisableAllLights(GameObject root)
+    {
+        if (root == null)
+            return;
+
+        Light[] lights = root.GetComponentsInChildren<Light>(true);
+        for (int i = 0; i < lights.Length; i++)
+        {
+            lights[i].shadows = LightShadows.None;
+            lights[i].enabled = false;
+        }
+    }
+
+    private void DecorateSegment(SegmentData segment)
+    {
+        if (segment == null || segment.Root == null || segment.Type == SegmentType.Entry)
+            return;
+
+        TryPlaceHangingLight(segment);
+
+        if (segment.HasCurtains)
+            PlaceCurtainsForSegment(segment);
+
+        List<WallPlacement> wallPlacements = BuildWallPlacements(segment);
+        HashSet<BoundaryKey> usedWalls = new HashSet<BoundaryKey>();
+        bool placedBed = false;
+        int surfaceCount = 0;
+
+        if (CanPlaceBed(segment))
+            placedBed = TryPlaceBed(segment, wallPlacements, usedWalls);
+
+        int targetSurfaceCount = GetTargetSurfaceCount(segment, placedBed);
+        for (int i = 0; i < targetSurfaceCount; i++)
+        {
+            if (TryPlaceSupportSurface(segment, wallPlacements, usedWalls))
+                surfaceCount++;
+        }
+
+        if (segment.Type == SegmentType.Room &&
+            segment.Cells.Count <= 4 &&
+            !placedBed &&
+            surfaceCount == 0 &&
+            chairPrefabs.Count > 0 &&
+            random.NextDouble() < SmallRoomChairChance)
+        {
+            TryPlaceAccentChair(segment, wallPlacements, usedWalls);
+        }
+    }
+
+    private void TryPlaceHangingLight(SegmentData segment)
+    {
+        if (hangingLightPrefabs.Count == 0)
+            return;
+
+        double chance = segment.Type == SegmentType.Room ? RoomLightChance : HallLightChance;
+        if (random.NextDouble() > chance)
+            return;
+
+        CellData anchorCell = GetCenterCell(segment);
+        if (anchorCell == null)
+            return;
+
+        Vector3 position = GetCellWorldPosition(anchorCell.Coord) + Vector3.up * (FloorHeight - CeilingDecorationOffset);
+        Quaternion rotation = Quaternion.Euler(0f, random.Next(4) * 90f, 0f);
+        GameObject lightObject = InstantiateRandomPrefab(hangingLightPrefabs, position, rotation, anchorCell.Root.transform);
+        if (lightObject == null)
+            return;
+
+        lightObject.transform.localScale *= HangingLightScaleFactor;
+        DisableAllColliders(lightObject);
+        DisableAllLights(lightObject);
+    }
+
+    private CellData GetCenterCell(SegmentData segment)
+    {
+        CellData selectedCell = null;
+        float closestDistance = float.PositiveInfinity;
+        Vector3 segmentCenter = segment.WorldBounds.center;
+        for (int i = 0; i < segment.Cells.Count; i++)
+        {
+            if (!cells.TryGetValue(segment.Cells[i], out CellData cell))
+                continue;
+
+            float sqrDistance = (GetCellWorldPosition(cell.Coord) - segmentCenter).sqrMagnitude;
+            if (sqrDistance >= closestDistance)
+                continue;
+
+            closestDistance = sqrDistance;
+            selectedCell = cell;
+        }
+
+        return selectedCell;
+    }
+
+    private List<WallPlacement> BuildWallPlacements(SegmentData segment)
+    {
+        List<WallPlacement> placements = new List<WallPlacement>();
+        for (int i = 0; i < segment.Cells.Count; i++)
+        {
+            if (!cells.TryGetValue(segment.Cells[i], out CellData cell))
+                continue;
+
+            for (int directionIndex = 0; directionIndex < AllDirections.Length; directionIndex++)
+            {
+                Direction side = AllDirections[directionIndex];
+                if (segment.Type == SegmentType.Hallway &&
+                    side != TurnLeft(cell.PrimaryDirection) &&
+                    side != TurnRight(cell.PrimaryDirection))
+                {
+                    continue;
+                }
+
+                BoundaryKey boundary = GetCanonicalBoundary(cell.Coord, side);
+                if (!boundaryVisuals.TryGetValue(boundary, out BoundaryVisualType visualType) || visualType != BoundaryVisualType.Wall)
+                    continue;
+
+                placements.Add(new WallPlacement(cell, side));
+            }
+        }
+
+        Shuffle(placements);
+        return placements;
+    }
+
+    private bool CanPlaceBed(SegmentData segment)
+    {
+        return segment.Type == SegmentType.Room &&
+               bedPrefabs.Count > 0 &&
+               segment.Cells.Count >= LargeRoomMinCellCountForBed &&
+               (segment.MaxX - segment.MinX >= 2 || segment.MaxZ - segment.MinZ >= 2);
+    }
+
+    private int GetTargetSurfaceCount(SegmentData segment, bool placedBed)
+    {
+        if (tablePrefabs.Count == 0 && dresserPrefabs.Count == 0)
+            return 0;
+
+        if (segment.Type == SegmentType.Hallway)
+        {
+            if (random.NextDouble() >= HallFurnitureChance)
+                return 0;
+
+            return random.NextDouble() < 0.2d ? 2 : 1;
+        }
+
+        if (random.NextDouble() >= RoomFurnitureChance)
+            return 0;
+
+        int count = 1;
+        if (segment.Cells.Count >= 4 && random.NextDouble() < 0.5d)
+            count = 2;
+        if (!placedBed && segment.Cells.Count >= 8 && random.NextDouble() < 0.22d)
+            count++;
+
+        return Mathf.Min(count, 3);
+    }
+
+    private bool TryPlaceBed(SegmentData segment, List<WallPlacement> placements, HashSet<BoundaryKey> usedWalls)
+    {
+        for (int i = 0; i < placements.Count; i++)
+        {
+            WallPlacement placement = placements[i];
+            BoundaryKey boundary = GetCanonicalBoundary(placement.Cell.Coord, placement.WallSide);
+            if (usedWalls.Contains(boundary))
+                continue;
+
+            if (!TryPlaceDecorationAgainstWall(bedPrefabs, segment, placement.Cell, placement.WallSide, out GameObject _))
+                continue;
+
+            usedWalls.Add(boundary);
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool TryPlaceSupportSurface(SegmentData segment, List<WallPlacement> placements, HashSet<BoundaryKey> usedWalls)
+    {
+        for (int i = 0; i < placements.Count; i++)
+        {
+            WallPlacement placement = placements[i];
+            BoundaryKey boundary = GetCanonicalBoundary(placement.Cell.Coord, placement.WallSide);
+            if (usedWalls.Contains(boundary))
+                continue;
+
+            bool tableFirst = tablePrefabs.Count > 0 && (dresserPrefabs.Count == 0 || random.NextDouble() < TablePreferenceChance);
+            if (TryPlaceSupportSurfaceVariant(segment, placement, tableFirst, out GameObject placedSurface, out bool isTable))
+            {
+                usedWalls.Add(boundary);
+                PlaceSurfaceItems(placedSurface);
+                if (isTable && chairPrefabs.Count > 0 && random.NextDouble() < TableChairChance)
+                    TryPlaceChairInFrontOfSurface(segment, placement.Cell, placement.WallSide, placedSurface);
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool TryPlaceSupportSurfaceVariant(
+        SegmentData segment,
+        WallPlacement placement,
+        bool tableFirst,
+        out GameObject placedSurface,
+        out bool isTable)
+    {
+        placedSurface = null;
+        isTable = false;
+
+        IReadOnlyList<GameObject> primary = tableFirst ? (IReadOnlyList<GameObject>)tablePrefabs : (IReadOnlyList<GameObject>)dresserPrefabs;
+        IReadOnlyList<GameObject> secondary = tableFirst ? (IReadOnlyList<GameObject>)dresserPrefabs : (IReadOnlyList<GameObject>)tablePrefabs;
+
+        if (TryPlaceDecorationAgainstWall(primary, segment, placement.Cell, placement.WallSide, out placedSurface))
+        {
+            isTable = tableFirst;
+            return true;
+        }
+
+        if (TryPlaceDecorationAgainstWall(secondary, segment, placement.Cell, placement.WallSide, out placedSurface))
+        {
+            isTable = !tableFirst;
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool TryPlaceAccentChair(SegmentData segment, List<WallPlacement> placements, HashSet<BoundaryKey> usedWalls)
+    {
+        for (int i = 0; i < placements.Count; i++)
+        {
+            WallPlacement placement = placements[i];
+            BoundaryKey boundary = GetCanonicalBoundary(placement.Cell.Coord, placement.WallSide);
+            if (usedWalls.Contains(boundary))
+                continue;
+
+            if (!TryPlaceDecorationAgainstWall(chairPrefabs, segment, placement.Cell, placement.WallSide, out GameObject _))
+                continue;
+
+            usedWalls.Add(boundary);
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool TryPlaceDecorationAgainstWall(
+        IReadOnlyList<GameObject> prefabPool,
+        SegmentData segment,
+        CellData cell,
+        Direction wallSide,
+        out GameObject instance)
+    {
+        instance = null;
+        if (prefabPool == null || prefabPool.Count == 0)
+            return false;
+
+        Quaternion rotation = Quaternion.Euler(0f, GetDirectionYaw(Opposite(wallSide)), 0f);
+        List<GameObject> candidates = new List<GameObject>(prefabPool.Count);
+        for (int i = 0; i < prefabPool.Count; i++)
+            candidates.Add(prefabPool[i]);
+
+        Shuffle(candidates);
+        for (int i = 0; i < candidates.Count; i++)
+        {
+            GameObject candidate = Instantiate(candidates[i], GetCellWorldPosition(cell.Coord), rotation, cell.Root.transform);
+            if (candidate == null)
+                continue;
+
+            AlignInstanceToFloorAndWall(candidate, cell.Coord, wallSide);
+            Bounds bounds = GetRenderableBounds(candidate);
+            if (!IsDecorationPlacementValid(bounds, segment, cell))
+            {
+                Destroy(candidate);
+                continue;
+            }
+
+            segment.OccupiedBounds.Add(bounds);
+            instance = candidate;
+            return true;
+        }
+
+        return false;
+    }
+
+    private void TryPlaceChairInFrontOfSurface(SegmentData segment, CellData cell, Direction wallSide, GameObject surface)
+    {
+        GameObject chair = InstantiateRandomPrefab(
+            chairPrefabs,
+            GetCellWorldPosition(cell.Coord),
+            Quaternion.Euler(0f, GetDirectionYaw(wallSide), 0f),
+            cell.Root.transform);
+        if (chair == null)
+            return;
+
+        Bounds surfaceBounds = GetRenderableBounds(surface);
+        Bounds chairBounds = GetRenderableBounds(chair);
+        Direction forward = Opposite(wallSide);
+        float surfaceDepth = GetBoundsExtentAlongDirection(surfaceBounds, forward);
+        float chairDepth = GetBoundsExtentAlongDirection(chairBounds, forward);
+        Vector3 targetCenter = surfaceBounds.center + GetDirectionVector(forward) * (surfaceDepth + chairDepth + 0.08f);
+        targetCenter.y = GetCellWorldPosition(cell.Coord).y + chairBounds.extents.y;
+        chair.transform.position += targetCenter - chairBounds.center;
+
+        Bounds alignedBounds = GetRenderableBounds(chair);
+        if (!IsDecorationPlacementValid(alignedBounds, segment, cell))
+        {
+            Destroy(chair);
+            return;
+        }
+
+        segment.OccupiedBounds.Add(alignedBounds);
+    }
+
+    private void PlaceSurfaceItems(GameObject surface)
+    {
+        if (surface == null || tableItemPrefabs.Count == 0)
+            return;
+
+        int itemCount = random.Next(0, 3);
+        if (itemCount == 0)
+            return;
+
+        Bounds surfaceBounds = GetRenderableBounds(surface);
+        List<Bounds> placedItemBounds = new List<Bounds>();
+        for (int i = 0; i < itemCount; i++)
+        {
+            GameObject item = InstantiateRandomPrefab(
+                tableItemPrefabs,
+                surfaceBounds.center,
+                Quaternion.Euler(0f, random.Next(360), 0f),
+                surface.transform);
+            if (item == null)
+                continue;
+
+            DisableAllColliders(item);
+            DisableAllLights(item);
+            if (!TryPlaceSurfaceItem(item, surfaceBounds, placedItemBounds))
+                Destroy(item);
+        }
+    }
+
+    private bool TryPlaceSurfaceItem(GameObject item, Bounds surfaceBounds, List<Bounds> placedItemBounds)
+    {
+        Bounds initialBounds = GetRenderableBounds(item);
+        float xRange = surfaceBounds.extents.x - initialBounds.extents.x - 0.08f;
+        float zRange = surfaceBounds.extents.z - initialBounds.extents.z - 0.08f;
+        if (xRange <= 0f || zRange <= 0f)
+            return false;
+
+        for (int attempt = 0; attempt < 5; attempt++)
+        {
+            Vector3 targetCenter = new Vector3(
+                surfaceBounds.center.x + Mathf.Lerp(-xRange, xRange, (float)random.NextDouble()),
+                surfaceBounds.max.y + initialBounds.extents.y + 0.01f,
+                surfaceBounds.center.z + Mathf.Lerp(-zRange, zRange, (float)random.NextDouble()));
+
+            Bounds currentBounds = GetRenderableBounds(item);
+            item.transform.position += targetCenter - currentBounds.center;
+            Bounds placedBounds = GetRenderableBounds(item);
+            bool overlaps = false;
+            for (int i = 0; i < placedItemBounds.Count; i++)
+            {
+                if (placedItemBounds[i].Intersects(placedBounds))
+                {
+                    overlaps = true;
+                    break;
+                }
+            }
+
+            if (overlaps)
+                continue;
+
+            placedItemBounds.Add(placedBounds);
+            return true;
+        }
+
+        return false;
+    }
+
+    private void PlaceCurtainsForSegment(SegmentData segment)
+    {
+        if (curtainPrefabs.Count == 0)
+            return;
+
+        HashSet<BoundaryKey> placedBoundaries = new HashSet<BoundaryKey>();
+        for (int i = 0; i < segment.Cells.Count; i++)
+        {
+            if (!cells.TryGetValue(segment.Cells[i], out CellData cell))
+                continue;
+
+            for (int directionIndex = 0; directionIndex < AllDirections.Length; directionIndex++)
+            {
+                Direction side = AllDirections[directionIndex];
+                BoundaryKey boundary = GetCanonicalBoundary(cell.Coord, side);
+                if (!placedBoundaries.Add(boundary))
+                    continue;
+
+                if (!boundaryVisuals.TryGetValue(boundary, out BoundaryVisualType visualType) || visualType != BoundaryVisualType.WindowWall)
+                    continue;
+
+                Vector3 position = GetBoundaryWorldPosition(cell.Coord, side) - GetDirectionVector(side) * 0.05f;
+                Quaternion rotation = Quaternion.Euler(0f, GetDirectionYaw(side), 0f);
+                GameObject curtain = InstantiateRandomPrefab(curtainPrefabs, position, rotation, cell.Root.transform);
+                DisableAllColliders(curtain);
+                DisableAllLights(curtain);
+            }
+        }
+    }
+
+    private void AlignInstanceToFloorAndWall(GameObject instance, GridCoord cellCoord, Direction wallSide)
+    {
+        Bounds bounds = GetRenderableBounds(instance);
+        Vector3 cellCenter = GetCellWorldPosition(cellCoord);
+        Vector3 targetCenter = bounds.center;
+        targetCenter.y = cellCenter.y + bounds.extents.y;
+
+        switch (wallSide)
+        {
+            case Direction.North:
+                targetCenter.z = cellCenter.z + HalfCellSize - FurnitureWallInset - bounds.extents.z;
+                targetCenter.x = cellCenter.x;
+                break;
+            case Direction.South:
+                targetCenter.z = cellCenter.z - HalfCellSize + FurnitureWallInset + bounds.extents.z;
+                targetCenter.x = cellCenter.x;
+                break;
+            case Direction.East:
+                targetCenter.x = cellCenter.x + HalfCellSize - FurnitureWallInset - bounds.extents.x;
+                targetCenter.z = cellCenter.z;
+                break;
+            default:
+                targetCenter.x = cellCenter.x - HalfCellSize + FurnitureWallInset + bounds.extents.x;
+                targetCenter.z = cellCenter.z;
+                break;
+        }
+
+        instance.transform.position += targetCenter - bounds.center;
+    }
+
+    private bool IsDecorationPlacementValid(Bounds bounds, SegmentData segment, CellData anchorCell)
+    {
+        Bounds allowedBounds = segment.Type == SegmentType.Room
+            ? segment.WorldBounds
+            : GetCellBounds(anchorCell.Coord);
+        allowedBounds.Expand(new Vector3(-DecorationFitInset * 2f, 0f, -DecorationFitInset * 2f));
+        if (!ContainsBounds(allowedBounds, bounds))
+            return false;
+
+        for (int i = 0; i < segment.OccupiedBounds.Count; i++)
+        {
+            if (segment.OccupiedBounds[i].Intersects(bounds))
+                return false;
+        }
+
+        for (int i = 0; i < segment.Cells.Count; i++)
+        {
+            GridCoord coord = segment.Cells[i];
+            if (bounds.Intersects(GetCellWalkwayBounds(coord)))
+                return false;
+
+            for (int directionIndex = 0; directionIndex < AllDirections.Length; directionIndex++)
+            {
+                Direction side = AllDirections[directionIndex];
+                if (!IsBoundaryPassable(GetCanonicalBoundary(coord, side)))
+                    continue;
+
+                if (bounds.Intersects(GetDoorwayClearanceBounds(coord, side)))
+                    return false;
+            }
+        }
+
+        return true;
+    }
+
+    private Bounds GetCellWalkwayBounds(GridCoord coord)
+    {
+        return new Bounds(
+            GetCellWorldPosition(coord) + new Vector3(0f, FloorHeight * 0.5f, 0f),
+            new Vector3(WalkwayClearanceSize, FloorHeight, WalkwayClearanceSize));
+    }
+
+    private Bounds GetDoorwayClearanceBounds(GridCoord coord, Direction side)
+    {
+        Vector3 center = GetCellWorldPosition(coord) +
+                         GetDirectionVector(side) * (HalfCellSize - DoorwayClearanceDepth * 0.5f) +
+                         new Vector3(0f, FloorHeight * 0.5f, 0f);
+
+        Vector3 size = side == Direction.North || side == Direction.South
+            ? new Vector3(CellSize * 0.72f, FloorHeight, DoorwayClearanceDepth)
+            : new Vector3(DoorwayClearanceDepth, FloorHeight, CellSize * 0.72f);
+
+        return new Bounds(center, size);
+    }
+
+    private static bool ContainsBounds(Bounds outer, Bounds inner)
+    {
+        return outer.min.x <= inner.min.x &&
+               outer.max.x >= inner.max.x &&
+               outer.min.y <= inner.min.y &&
+               outer.max.y >= inner.max.y &&
+               outer.min.z <= inner.min.z &&
+               outer.max.z >= inner.max.z;
+    }
+
+    private static float GetBoundsExtentAlongDirection(Bounds bounds, Direction direction)
+    {
+        return direction == Direction.East || direction == Direction.West ? bounds.extents.x : bounds.extents.z;
     }
 
     private void AddInternalOpenBoundaries(SegmentBlueprint blueprint)
@@ -1235,6 +1838,7 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         segment.IsActive = false;
         segment.Root = null;
         segment.Cells.Clear();
+        segment.OccupiedBounds.Clear();
 
         foreach (BoundaryKey boundary in affectedBoundaries)
             UpdateBoundary(boundary, ResolveBoundaryVisual(boundary));
@@ -1707,6 +2311,34 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         return openBoundaries.Contains(boundary) || doorBoundaries.Contains(boundary);
     }
 
+    private static Bounds GetRenderableBounds(GameObject root)
+    {
+        if (root == null)
+            return default;
+
+        Renderer[] renderers = root.GetComponentsInChildren<Renderer>(true);
+        if (renderers.Length > 0)
+        {
+            Bounds bounds = renderers[0].bounds;
+            for (int i = 1; i < renderers.Length; i++)
+                bounds.Encapsulate(renderers[i].bounds);
+
+            return bounds;
+        }
+
+        Collider[] colliders = root.GetComponentsInChildren<Collider>(true);
+        if (colliders.Length > 0)
+        {
+            Bounds bounds = colliders[0].bounds;
+            for (int i = 1; i < colliders.Length; i++)
+                bounds.Encapsulate(colliders[i].bounds);
+
+            return bounds;
+        }
+
+        return new Bounds(root.transform.position, Vector3.zero);
+    }
+
     private Bounds GetBoundaryBounds(BoundaryKey boundary)
     {
         if (boundaryObjects.TryGetValue(boundary, out GameObject boundaryObject) && boundaryObject != null)
@@ -1748,11 +2380,11 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         switch (type)
         {
             case BoundaryVisualType.Wall:
-                return wallPrefab;
+                return GetRandomPrefab(wallPrefabs);
             case BoundaryVisualType.WindowWall:
-                return windowWallPrefab;
+                return GetRandomPrefab(windowWallPrefabs);
             case BoundaryVisualType.DoorWall:
-                return doorWallPrefab;
+                return GetRandomPrefab(doorWallPrefabs);
             default:
                 return null;
         }
@@ -2125,6 +2757,19 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         public int RemainingDepth { get; }
     }
 
+    private readonly struct WallPlacement
+    {
+        public WallPlacement(CellData cell, Direction wallSide)
+        {
+            Cell = cell;
+            WallSide = wallSide;
+        }
+
+        public CellData Cell { get; }
+
+        public Direction WallSide { get; }
+    }
+
     private readonly struct BoundaryKey : IEquatable<BoundaryKey>
     {
         public BoundaryKey(GridCoord cell, Direction side)
@@ -2232,7 +2877,11 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
 
         public WindowPattern WindowPattern { get; set; }
 
+        public bool HasCurtains { get; set; }
+
         public List<GridCoord> Cells { get; } = new List<GridCoord>();
+
+        public List<Bounds> OccupiedBounds { get; } = new List<Bounds>();
     }
 
     private sealed class CellData
