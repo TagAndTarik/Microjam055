@@ -7,8 +7,8 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: BetterWavy
-  m_Shader: {fileID: 4800000, guid: 2cb2e84a9b085c949b2e5555af08de04, type: 3}
+  m_Name: RetroCameraLowAlias
+  m_Shader: {fileID: 4800000, guid: 1ae88cf532274bcc886cdb16cf04f2f2, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -29,12 +29,11 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _Amplitude: 0.02
+    - _BrightnessGain: 1.08
     - _ColorOffset: 0.05
-    - _Frequency: 10
     - _Intensity: 0.19
+    - _RetroPixelSize: 4
     - _ScanlineStrength: 0.04
-    - _Speed: 2
     m_Colors: []
   m_BuildTextureStacks: []
   m_AllowLocking: 1
