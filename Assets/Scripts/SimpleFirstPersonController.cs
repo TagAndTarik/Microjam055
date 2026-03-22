@@ -64,6 +64,13 @@ public class SimpleFirstPersonController : MonoBehaviour
     [SerializeField] private float mouseSensitivity = 0.1f;
     [SerializeField] private float maxLookAngle = 80f;
     [SerializeField] private float cameraNearClipPlane = 0.03f;
+    [Header("View Bob")]
+    [SerializeField] private bool enableViewBob = true;
+    [SerializeField] private float viewBobFrequency = 1.8f;
+    [SerializeField] private float viewBobVerticalAmplitude = 0.045f;
+    [SerializeField] private float viewBobHorizontalAmplitude = 0.018f;
+    [SerializeField] private float viewBobSmoothing = 12f;
+    [SerializeField] private float minimumBobSpeed = 0.1f;
 
     [Header("Interaction")]
     [SerializeField] private float interactDistance = 3f;
@@ -124,12 +131,19 @@ public class SimpleFirstPersonController : MonoBehaviour
     private Color limitedVisibilityFogColor;
     private HeldItemSocket heldItemSocket;
     private float progress;
+    private Vector3 cameraPivotBaseLocalPosition;
+    private Vector3 currentViewBobOffset;
+    private float viewBobCycle;
+
     private void Awake()
     {
         controller = GetComponent<CharacterController>();
 
         if (playerCamera == null)
             playerCamera = GetComponentInChildren<Camera>();
+
+        if (cameraPivot != null)
+            cameraPivotBaseLocalPosition = cameraPivot.localPosition;
 
         if (playerCamera != null)
         {
@@ -160,6 +174,7 @@ public class SimpleFirstPersonController : MonoBehaviour
         UpdateLimitedVisibility();
         UpdatePlayerMessage();
         Move();
+        UpdateViewBob();
         UpdateShader();
     }
 
@@ -181,6 +196,11 @@ public class SimpleFirstPersonController : MonoBehaviour
         playerMessageSize.y = Mathf.Max(1f, playerMessageSize.y);
         playerMessageFontSize = Mathf.Max(1, playerMessageFontSize);
         defaultPlayerMessageDuration = Mathf.Max(0.1f, defaultPlayerMessageDuration);
+        viewBobFrequency = Mathf.Max(0f, viewBobFrequency);
+        viewBobVerticalAmplitude = Mathf.Max(0f, viewBobVerticalAmplitude);
+        viewBobHorizontalAmplitude = Mathf.Max(0f, viewBobHorizontalAmplitude);
+        viewBobSmoothing = Mathf.Max(0.01f, viewBobSmoothing);
+        minimumBobSpeed = Mathf.Max(0f, minimumBobSpeed);
 
         ApplyCrosshairStyle();
         SetCrosshairVisible(showCrosshair);
@@ -349,6 +369,37 @@ public class SimpleFirstPersonController : MonoBehaviour
         move.y = verticalVelocity;
 
         controller.Move(move * Time.deltaTime);
+    }
+
+    private void UpdateViewBob()
+    {
+        if (cameraPivot == null)
+            return;
+
+        Vector3 targetOffset = Vector3.zero;
+        float smoothing = 1f - Mathf.Exp(-viewBobSmoothing * Time.deltaTime);
+
+        if (enableViewBob && controller != null && controller.isGrounded)
+        {
+            Vector3 planarVelocity = controller.velocity;
+            planarVelocity.y = 0f;
+
+            float speed = planarVelocity.magnitude;
+            if (speed > minimumBobSpeed)
+            {
+                float speedRatio = Mathf.Clamp01(speed / Mathf.Max(0.01f, moveSpeed));
+                viewBobCycle += Time.deltaTime * viewBobFrequency * Mathf.Lerp(0.8f, 1.6f, speedRatio);
+
+                float bobPhase = viewBobCycle * Mathf.PI * 2f;
+                targetOffset = new Vector3(
+                    Mathf.Cos(bobPhase * 0.5f) * viewBobHorizontalAmplitude * speedRatio,
+                    Mathf.Sin(bobPhase) * viewBobVerticalAmplitude * speedRatio,
+                    0f);
+            }
+        }
+
+        currentViewBobOffset = Vector3.Lerp(currentViewBobOffset, targetOffset, smoothing);
+        cameraPivot.localPosition = cameraPivotBaseLocalPosition + currentViewBobOffset;
     }
 
     private void UpdateInteraction()

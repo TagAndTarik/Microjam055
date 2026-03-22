@@ -17,11 +17,21 @@ public class HeldItemSocket : MonoBehaviour
     [SerializeField, Range(0.55f, 0.98f)] private float viewportX = 0.78f;
     [SerializeField, Range(0.02f, 0.45f)] private float viewportY = 0.22f;
     [SerializeField] private float holdDistance = 0.55f;
+    [Header("Held Lamp Motion")]
+    [SerializeField] private bool enableHeldLampJostle = true;
+    [SerializeField] private float heldLampJostleFrequency = 2.2f;
+    [SerializeField] private float heldLampJostleAmplitude = 0.02f;
+    [SerializeField] private float heldLampJostleSmoothing = 10f;
+    [SerializeField] private float minimumJostleSpeed = 0.1f;
 
     private Camera holdCamera;
     private Transform holdAnchor;
     private PickupInteractable heldItem;
     private int heldItemLayer = -1;
+    private Vector3 currentJostleOffset;
+    private Vector3 lastSocketPosition;
+    private bool hasLastSocketPosition;
+    private float heldLampJostleCycle;
 
     public bool IsHoldingItem => heldItem != null;
     public PickupInteractable HeldItem => heldItem;
@@ -39,6 +49,10 @@ public class HeldItemSocket : MonoBehaviour
     private void OnValidate()
     {
         holdDistance = Mathf.Max(0.05f, holdDistance);
+        heldLampJostleFrequency = Mathf.Max(0f, heldLampJostleFrequency);
+        heldLampJostleAmplitude = Mathf.Max(0f, heldLampJostleAmplitude);
+        heldLampJostleSmoothing = Mathf.Max(0.01f, heldLampJostleSmoothing);
+        minimumJostleSpeed = Mathf.Max(0f, minimumJostleSpeed);
 
         if (playerCamera == null)
             playerCamera = FindPlayerCamera();
@@ -75,6 +89,9 @@ public class HeldItemSocket : MonoBehaviour
             return false;
 
         heldItem = item;
+        currentJostleOffset = Vector3.zero;
+        heldLampJostleCycle = 0f;
+        hasLastSocketPosition = false;
         return true;
     }
 
@@ -88,6 +105,8 @@ public class HeldItemSocket : MonoBehaviour
             return false;
 
         heldItem = null;
+        currentJostleOffset = Vector3.zero;
+        heldLampJostleCycle = 0f;
         return true;
     }
 
@@ -257,7 +276,61 @@ public class HeldItemSocket : MonoBehaviour
             Mathf.Lerp(-halfWidth, halfWidth, viewportX),
             Mathf.Lerp(-halfHeight, halfHeight, viewportY),
             distance);
+        holdAnchor.localPosition += CalculateHeldLampJostleOffset();
         holdAnchor.localRotation = Quaternion.identity;
         holdAnchor.localScale = Vector3.one;
+    }
+
+    private Vector3 CalculateHeldLampJostleOffset()
+    {
+        Vector3 targetOffset = Vector3.zero;
+        float smoothing = 1f - Mathf.Exp(-heldLampJostleSmoothing * Time.deltaTime);
+
+        if (enableHeldLampJostle && IsHeldLamp())
+        {
+            float speed = GetSocketHorizontalSpeed();
+            if (speed > minimumJostleSpeed)
+            {
+                float speedRatio = Mathf.Clamp01(speed / 5f);
+                heldLampJostleCycle += Time.deltaTime * heldLampJostleFrequency * Mathf.Lerp(0.85f, 1.8f, speedRatio);
+
+                float bobPhase = heldLampJostleCycle * Mathf.PI * 2f;
+                targetOffset = new Vector3(
+                    0f,
+                    Mathf.Sin(bobPhase) * heldLampJostleAmplitude * speedRatio,
+                    0f);
+            }
+        }
+
+        currentJostleOffset = Vector3.Lerp(currentJostleOffset, targetOffset, smoothing);
+        return currentJostleOffset;
+    }
+
+    private float GetSocketHorizontalSpeed()
+    {
+        Vector3 currentPosition = transform.position;
+        if (!hasLastSocketPosition)
+        {
+            lastSocketPosition = currentPosition;
+            hasLastSocketPosition = true;
+            return 0f;
+        }
+
+        Vector3 delta = currentPosition - lastSocketPosition;
+        lastSocketPosition = currentPosition;
+        delta.y = 0f;
+
+        float deltaTime = Mathf.Max(0.0001f, Time.deltaTime);
+        return delta.magnitude / deltaTime;
+    }
+
+    private bool IsHeldLamp()
+    {
+        if (heldItem == null)
+            return false;
+
+        return heldItem.GetComponent<WarmLightInteractable>() != null ||
+               heldItem.GetComponentInParent<WarmLightInteractable>() != null ||
+               heldItem.GetComponentInChildren<WarmLightInteractable>(true) != null;
     }
 }

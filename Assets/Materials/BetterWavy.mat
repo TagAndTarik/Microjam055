@@ -30,10 +30,10 @@ Material:
     m_Ints: []
     m_Floats:
     - _Amplitude: 0.02
-    - _ColorOffset: 0.002
+    - _ColorOffset: 0.05
     - _Frequency: 10
-    - _Intensity: 0
-    - _ScanlineStrength: 0
+    - _Intensity: 0.19
+    - _ScanlineStrength: 0.04
     - _Speed: 2
     m_Colors: []
   m_BuildTextureStacks: []
