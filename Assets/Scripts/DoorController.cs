@@ -21,6 +21,9 @@ public class DoorController : MonoBehaviour
             doorPivot = FindChildRecursive(transform, "Exterior_Door");
 
         if (doorPivot == null)
+            doorPivot = FindChildRecursive(transform, "Interior_Door");
+
+        if (doorPivot == null)
         {
             Debug.LogError($"DoorController on {name} could not find a door pivot.", this);
             enabled = false;
@@ -28,6 +31,20 @@ public class DoorController : MonoBehaviour
         }
 
         closedRotation = doorPivot.localRotation;
+    }
+
+    public void Configure(Transform pivot)
+    {
+        doorPivot = pivot;
+
+        if (doorPivot == null)
+        {
+            enabled = false;
+            return;
+        }
+
+        closedRotation = doorPivot.localRotation;
+        enabled = true;
     }
 
     public void Toggle(Transform interactor)

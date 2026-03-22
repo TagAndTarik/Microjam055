@@ -45,7 +45,7 @@ GameObject:
   - component: {fileID: 5277980550014914067}
   - component: {fileID: 5952694572494512893}
   m_Layer: 0
-  m_Name: Exterior_wall
+  m_Name: Side 1
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -99,7 +99,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: ab6237f4af2b31a47961a85558a852bf, type: 2}
+  - {fileID: 2100000, guid: 1e9675e16de9c6341993091a96845618, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -136,7 +136,7 @@ GameObject:
   - component: {fileID: 5423352944238463844}
   - component: {fileID: 5034262698468969866}
   m_Layer: 0
-  m_Name: ExteriorToInterior_wall
+  m_Name: Side 2
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

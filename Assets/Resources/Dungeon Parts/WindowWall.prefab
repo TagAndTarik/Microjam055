@@ -452,6 +452,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Exterior_Window_Wall
       objectReference: {fileID: 0}
+    - target: {fileID: 4165038685615390747, guid: 5e73262af13351e45b35160323da63b8, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 1e9675e16de9c6341993091a96845618, type: 2}
     - target: {fileID: 8481928729541969329, guid: 5e73262af13351e45b35160323da63b8, type: 3}
       propertyPath: m_RootOrder
       value: 3
@@ -516,7 +520,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 3462020979322623061, guid: 0a6c200b145b9714fba74299856de48e, type: 3}
       propertyPath: m_Name
-      value: ExteriorToInterior_Window_Wall
+      value: Inside
       objectReference: {fileID: 0}
     - target: {fileID: 3857429130021471999, guid: 0a6c200b145b9714fba74299856de48e, type: 3}
       propertyPath: m_RootOrder

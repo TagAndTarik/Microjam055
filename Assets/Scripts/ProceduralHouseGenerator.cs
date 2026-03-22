@@ -16,9 +16,13 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
     private const float VisibilityProbeSize = 0.15f;
     private const float VisibilityVerticalOffset = 1.2f;
     private const float VisibilityLateralOffset = 0.45f;
+    private const float WalkingStartDistance = 0.1f;
+    private const float VerticalWalkingTolerance = 0.05f;
     private const int RequiredSegmentsAhead = 4;
     private const int MaxGenerationAttemptsPerType = 12;
     private const int MaxLevels = 3;
+    private const string DoorLeafName = "Interior_Door";
+    private const string DoorHoverMessage = "Open door";
 
     private static readonly Direction[] AllDirections =
     {
@@ -45,12 +49,17 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
     private System.Random random;
     private Transform playerTransform;
     private Camera playerCamera;
+    private CharacterController playerController;
     private Vector3 worldGridOrigin;
     private Direction initialDirection;
     private Frontier tailFrontier;
     private int sessionSeed;
     private int currentSegmentIndex;
+    private Vector3 previousPlayerPosition;
+    private float groundedWalkDistance;
     private bool initialized;
+    private bool generationStarted;
+    private GameObject previewEntranceDoor;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Bootstrap()
@@ -75,6 +84,7 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         }
 
         initialized = true;
+        previousPlayerPosition = playerTransform != null ? playerTransform.position : Vector3.zero;
     }
 
     private void Update()
@@ -87,8 +97,18 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         if (playerTransform == null || playerCamera == null)
             return;
 
+        if (!generationStarted)
+        {
+            if (HasPlayerStartedWalking())
+                BeginGeneration();
+
+            previousPlayerPosition = playerTransform.position;
+            return;
+        }
+
         currentSegmentIndex = FindCurrentSegmentIndex(playerTransform.position);
         EnsureForwardBuffer(false);
+        previousPlayerPosition = playerTransform.position;
     }
 
     private bool TryInitialize()
@@ -104,19 +124,7 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         random = new System.Random(sessionSeed);
         initialDirection = GetClosestDirection(playerTransform.forward);
         worldGridOrigin = ComputeInitialOrigin(playerTransform.position, initialDirection);
-
-        if (!TryBuildInitialRoom(out SegmentBlueprint initialBlueprint))
-            return false;
-
-        SegmentData initialSegment = CommitBlueprint(initialBlueprint);
-        segments.Add(initialSegment);
-        currentSegmentIndex = 0;
-
-        doorBoundaries.Add(GetCanonicalBoundary(initialBlueprint.EntranceDoorCell, initialBlueprint.EntranceDoorSide));
-        tailFrontier = initialBlueprint.ExitFrontier;
-
-        RebuildAllBoundaries();
-        EnsureForwardBuffer(true);
+        SpawnPreviewEntranceDoor();
         return true;
     }
 
@@ -146,11 +154,69 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
                 playerTransform = controller.transform;
         }
 
+        if (playerController == null && playerTransform != null)
+            playerController = playerTransform.GetComponent<CharacterController>();
+
         if (playerCamera == null)
             playerCamera = Camera.main;
 
         if (playerCamera == null && playerTransform != null)
             playerCamera = playerTransform.GetComponentInChildren<Camera>();
+    }
+
+    private void BeginGeneration()
+    {
+        if (generationStarted)
+            return;
+
+        if (!TryBuildInitialRoom(out SegmentBlueprint initialBlueprint))
+            return;
+
+        if (previewEntranceDoor != null)
+        {
+            Destroy(previewEntranceDoor);
+            previewEntranceDoor = null;
+        }
+
+        SegmentData initialSegment = CommitBlueprint(initialBlueprint);
+        segments.Add(initialSegment);
+        currentSegmentIndex = 0;
+
+        doorBoundaries.Add(GetCanonicalBoundary(initialBlueprint.EntranceDoorCell, initialBlueprint.EntranceDoorSide));
+        tailFrontier = initialBlueprint.ExitFrontier;
+        generationStarted = true;
+
+        RebuildAllBoundaries();
+        EnsureForwardBuffer(true);
+    }
+
+    private void SpawnPreviewEntranceDoor()
+    {
+        if (previewEntranceDoor != null)
+            Destroy(previewEntranceDoor);
+
+        Vector3 position = GetBoundaryWorldPosition(GridCoord.Zero, Opposite(initialDirection));
+        Quaternion rotation = Quaternion.Euler(0f, GetDirectionYaw(Opposite(initialDirection)), 0f);
+        previewEntranceDoor = Instantiate(doorWallPrefab, position, rotation, transform);
+        previewEntranceDoor.name = "Generated Entrance Preview";
+    }
+
+    private bool HasPlayerStartedWalking()
+    {
+        if (playerTransform == null)
+            return false;
+
+        Vector3 delta = playerTransform.position - previousPlayerPosition;
+        float horizontalDistance = new Vector2(delta.x, delta.z).magnitude;
+        bool grounded = playerController == null || playerController.isGrounded;
+        bool lowVerticalMotion = Mathf.Abs(delta.y) <= VerticalWalkingTolerance;
+
+        if (grounded && lowVerticalMotion && horizontalDistance > 0.0005f)
+            groundedWalkDistance += horizontalDistance;
+        else if (!grounded)
+            groundedWalkDistance = 0f;
+
+        return groundedWalkDistance >= WalkingStartDistance;
     }
 
     private void EnsureForwardBuffer(bool ignoreVisibility)
@@ -410,6 +476,19 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
             }
         }
 
+        for (int i = 0; i < blueprint.CellCount; i++)
+        {
+            GridCoord cell = blueprint.Cells[i].Coord;
+            for (int directionIndex = 0; directionIndex < AllDirections.Length; directionIndex++)
+            {
+                Direction direction = AllDirections[directionIndex];
+                if (!blueprint.Contains(cell.Step(direction)))
+                    continue;
+
+                openBoundaries.Add(GetCanonicalBoundary(cell, direction));
+            }
+        }
+
         segment.WorldBounds = segmentBounds;
         segment.ExitFrontier = blueprint.ExitFrontier;
         return segment;
@@ -542,6 +621,9 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         Quaternion rotation = Quaternion.Euler(0f, GetDirectionYaw(key.Side), 0f);
         GameObject boundaryObject = Instantiate(prefab, position, rotation, transform);
         boundaryObject.name = $"{type}_{key.Cell.X}_{key.Cell.Level}_{key.Cell.Z}_{key.Side}";
+        if (type == BoundaryVisualType.DoorWall)
+            ConfigureGeneratedDoor(boundaryObject);
+
         boundaryObjects[key] = boundaryObject;
     }
 
@@ -708,6 +790,74 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
             default:
                 return null;
         }
+    }
+
+    private void ConfigureGeneratedDoor(GameObject boundaryObject)
+    {
+        if (boundaryObject == null)
+            return;
+
+        Transform doorLeaf = FindChildRecursive(boundaryObject.transform, DoorLeafName);
+        if (doorLeaf == null)
+            return;
+
+        DoorController doorController = boundaryObject.GetComponent<DoorController>();
+        if (doorController == null)
+            doorController = boundaryObject.AddComponent<DoorController>();
+
+        doorController.Configure(doorLeaf);
+
+        BoxCollider collider = doorLeaf.GetComponent<BoxCollider>();
+        if (collider == null)
+            collider = doorLeaf.gameObject.AddComponent<BoxCollider>();
+
+        FitDoorCollider(collider, doorLeaf);
+
+        InteractableOutline outline = doorLeaf.GetComponent<InteractableOutline>();
+        if (outline == null)
+            outline = doorLeaf.gameObject.AddComponent<InteractableOutline>();
+
+        DoorLeafInteractable interactable = doorLeaf.GetComponent<DoorLeafInteractable>();
+        if (interactable == null)
+            interactable = doorLeaf.gameObject.AddComponent<DoorLeafInteractable>();
+
+        interactable.Configure(doorController, DoorHoverMessage);
+    }
+
+    private static void FitDoorCollider(BoxCollider collider, Transform doorLeaf)
+    {
+        MeshFilter meshFilter = doorLeaf.GetComponent<MeshFilter>();
+        if (meshFilter != null && meshFilter.sharedMesh != null)
+        {
+            Bounds meshBounds = meshFilter.sharedMesh.bounds;
+            collider.center = meshBounds.center;
+            collider.size = meshBounds.size + new Vector3(0.03f, 0.03f, 0.08f);
+            return;
+        }
+
+        Renderer renderer = doorLeaf.GetComponent<Renderer>();
+        if (renderer == null)
+            return;
+
+        Bounds rendererBounds = renderer.localBounds;
+        collider.center = rendererBounds.center;
+        collider.size = rendererBounds.size + new Vector3(0.03f, 0.03f, 0.08f);
+    }
+
+    private static Transform FindChildRecursive(Transform root, string containsName)
+    {
+        for (int i = 0; i < root.childCount; i++)
+        {
+            Transform child = root.GetChild(i);
+            if (child.name.IndexOf(containsName, StringComparison.OrdinalIgnoreCase) >= 0)
+                return child;
+
+            Transform nested = FindChildRecursive(child, containsName);
+            if (nested != null)
+                return nested;
+        }
+
+        return null;
     }
 
     private Vector3 ComputeInitialOrigin(Vector3 playerPosition, Direction direction)
