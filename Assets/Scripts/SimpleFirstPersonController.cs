@@ -1,5 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 using UnityEngine.UI;
 
 [RequireComponent(typeof(CharacterController))]
@@ -67,6 +69,7 @@ public class SimpleFirstPersonController : MonoBehaviour
     private float verticalVelocity;
     private float pitch;
     private float playerMessageHideTime;
+    private float defaultFarClipPlane = 1000f;
     private string activePlayerMessage = string.Empty;
 
     private void Awake()
@@ -76,7 +79,10 @@ public class SimpleFirstPersonController : MonoBehaviour
             playerCamera = GetComponentInChildren<Camera>();
 
         if (playerCamera != null)
+        {
             playerCamera.nearClipPlane = Mathf.Max(0.01f, cameraNearClipPlane);
+            defaultFarClipPlane = Mathf.Max(playerCamera.nearClipPlane + 0.01f, playerCamera.farClipPlane);
+        }
         playerManagerScript = GetComponent<PlayerManager>();    
         EnsureCrosshair();
         ApplyCrosshairStyle();
@@ -132,6 +138,36 @@ public class SimpleFirstPersonController : MonoBehaviour
         activePlayerMessage = string.IsNullOrWhiteSpace(message) ? string.Empty : message.Trim();
         playerMessageHideTime = Time.unscaledTime + (duration > 0f ? duration : defaultPlayerMessageDuration);
         RefreshPlayerMessage();
+    }
+
+    public void ApplyVisibilityLimit(
+        float maxVisibleDistance,
+        float fogStartDistance,
+        Color fogColor,
+        float vignetteIntensity = 0f,
+        float vignetteSmoothness = 0.85f)
+    {
+        if (playerCamera == null)
+            playerCamera = GetComponentInChildren<Camera>();
+
+        float nearClip = Mathf.Max(0.01f, cameraNearClipPlane);
+        float clampedMaxDistance = Mathf.Max(nearClip + 0.01f, maxVisibleDistance);
+        float clampedFogStart = Mathf.Clamp(fogStartDistance, 0f, Mathf.Max(0f, clampedMaxDistance - 0.01f));
+
+        if (playerCamera != null)
+        {
+            playerCamera.nearClipPlane = nearClip;
+            // Keep the original far clip so the darkness comes from fog, not from a flat cut plane.
+            playerCamera.farClipPlane = Mathf.Max(defaultFarClipPlane, clampedMaxDistance);
+        }
+
+        RenderSettings.fog = true;
+        RenderSettings.fogMode = FogMode.Linear;
+        RenderSettings.fogColor = fogColor;
+        RenderSettings.fogStartDistance = clampedFogStart;
+        RenderSettings.fogEndDistance = clampedMaxDistance;
+
+        ApplyVisibilityVignette(fogColor, vignetteIntensity, vignetteSmoothness);
     }
 
     private void Look()
@@ -619,5 +655,44 @@ public class SimpleFirstPersonController : MonoBehaviour
             defaultHoverPromptFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
         return defaultHoverPromptFont;
+    }
+
+    private void ApplyVisibilityVignette(Color fogColor, float intensity, float smoothness)
+    {
+        if (intensity <= 0f)
+            return;
+
+        Volume targetVolume = ResolveGlobalVolume();
+        if (targetVolume == null)
+            return;
+
+        VolumeProfile profile = targetVolume.profile;
+        if (profile == null)
+            return;
+
+        if (!profile.TryGet(out Vignette vignette))
+            vignette = profile.Add<Vignette>(true);
+
+        if (vignette == null)
+            return;
+
+        vignette.active = true;
+        vignette.color.Override(fogColor);
+        vignette.intensity.Override(Mathf.Clamp01(intensity));
+        vignette.smoothness.Override(Mathf.Clamp(smoothness, 0.01f, 1f));
+        vignette.rounded.Override(true);
+    }
+
+    private static Volume ResolveGlobalVolume()
+    {
+        Volume[] volumes = FindObjectsOfType<Volume>(true);
+        for (int i = 0; i < volumes.Length; i++)
+        {
+            Volume volume = volumes[i];
+            if (volume != null && volume.isGlobal)
+                return volume;
+        }
+
+        return null;
     }
 }

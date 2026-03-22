@@ -24,6 +24,12 @@ public class LightsOffInteractable : MonoBehaviour, IInteractable
     [SerializeField] private Color targetAmbientGroundColor = new Color(0.007f, 0.006f, 0.008f, 1f);
     [SerializeField, Range(0f, 1f)] private float targetAmbientIntensity = 0.28f;
     [SerializeField, Range(0f, 1f)] private float targetReflectionIntensity = 0.1f;
+    [SerializeField] private bool limitPlayerVisibilityOnInteract = true;
+    [SerializeField, Min(0.5f)] private float playerVisibilityDistance = 4f;
+    [SerializeField, Min(0f)] private float playerVisibilityFogStartDistance = 1.5f;
+    [SerializeField] private Color playerVisibilityFogColor = new Color(0.018f, 0.02f, 0.027f, 1f);
+    [SerializeField, Range(0f, 1f)] private float playerVisibilityVignetteIntensity = 0.24f;
+    [SerializeField, Range(0.01f, 1f)] private float playerVisibilityVignetteSmoothness = 0.82f;
     [SerializeField, TextArea] private string hoverMessage = "Sleep";
     [SerializeField, TextArea] private string postInteractMessage = "My lamp is in the attic";
     [SerializeField] private float postInteractMessageDuration = 4.5f;
@@ -101,6 +107,7 @@ public class LightsOffInteractable : MonoBehaviour, IInteractable
 
         targetHouseManager.TurnOffAllLights();
         DarkenEnvironment();
+        LimitPlayerVisibility(interactor);
         PlayScaryChimes();
         ReplaceFrontDoorWithWall();
         ShowPostInteractMessage(interactor);
@@ -161,14 +168,29 @@ public class LightsOffInteractable : MonoBehaviour, IInteractable
         if (string.IsNullOrWhiteSpace(postInteractMessage))
             return;
 
-        SimpleFirstPersonController controller = interactor != null
-            ? interactor.GetComponentInParent<SimpleFirstPersonController>()
-            : FindObjectOfType<SimpleFirstPersonController>();
+        SimpleFirstPersonController controller = ResolvePlayerController(interactor);
 
         if (controller == null)
             return;
 
         controller.ShowPlayerMessage(postInteractMessage, postInteractMessageDuration);
+    }
+
+    private void LimitPlayerVisibility(Transform interactor)
+    {
+        if (!limitPlayerVisibilityOnInteract)
+            return;
+
+        SimpleFirstPersonController controller = ResolvePlayerController(interactor);
+        if (controller == null)
+            return;
+
+        controller.ApplyVisibilityLimit(
+            playerVisibilityDistance,
+            playerVisibilityFogStartDistance,
+            playerVisibilityFogColor,
+            playerVisibilityVignetteIntensity,
+            playerVisibilityVignetteSmoothness);
     }
 
     private void ReplaceFrontDoorWithWall()
@@ -239,6 +261,13 @@ public class LightsOffInteractable : MonoBehaviour, IInteractable
         }
 
         return null;
+    }
+
+    private static SimpleFirstPersonController ResolvePlayerController(Transform interactor)
+    {
+        return interactor != null
+            ? interactor.GetComponentInParent<SimpleFirstPersonController>()
+            : FindObjectOfType<SimpleFirstPersonController>();
     }
 
     private static bool IsUnsetColor(Color color)
