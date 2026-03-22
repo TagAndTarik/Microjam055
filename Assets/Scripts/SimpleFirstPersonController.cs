@@ -15,6 +15,8 @@ public class SimpleFirstPersonController : MonoBehaviour
     private const int DefaultHoverPromptFontSize = 18;
     private const int DefaultPlayerMessageFontSize = 22;
     private const float HeldLampVisibilityMultiplier = 2f;
+    private const float MinimumVisibilityMultiplier = 0.01f;
+    private const float VisibilityDecayDuration = 60f;
     private static readonly Color DefaultHoverPromptColor = new Color(1f, 1f, 1f, 0.95f);
     private static readonly Color DefaultPlayerMessageColor = new Color(1f, 1f, 1f, 0.96f);
 
@@ -73,6 +75,7 @@ public class SimpleFirstPersonController : MonoBehaviour
     private float defaultFarClipPlane = 1000f;
     private float limitedVisibilityDistance;
     private float limitedVisibilityFogStartDistance;
+    private float limitedVisibilityStartTime;
     private float limitedVisibilityVignetteIntensity;
     private float limitedVisibilityVignetteSmoothness;
     private bool hasLimitedVisibility;
@@ -112,7 +115,7 @@ public class SimpleFirstPersonController : MonoBehaviour
     {
         Look();
         UpdateInteraction();
-        UpdateVisibilityLimitForHeldLamp();
+        UpdateLimitedVisibility();
         UpdatePlayerMessage();
         Move();
     }
@@ -166,29 +169,27 @@ public class SimpleFirstPersonController : MonoBehaviour
         limitedVisibilityFogColor = fogColor;
         limitedVisibilityVignetteIntensity = vignetteIntensity;
         limitedVisibilityVignetteSmoothness = vignetteSmoothness;
+        limitedVisibilityStartTime = Time.time;
         hasLimitedVisibility = true;
         lastLampHeldState = IsLampHeld();
 
         ApplyStoredVisibilityLimit();
     }
 
-    private void UpdateVisibilityLimitForHeldLamp()
+    private void UpdateLimitedVisibility()
     {
         if (!hasLimitedVisibility)
             return;
 
-        bool isLampHeld = IsLampHeld();
-        if (isLampHeld == lastLampHeldState)
-            return;
-
-        lastLampHeldState = isLampHeld;
+        lastLampHeldState = IsLampHeld();
         ApplyStoredVisibilityLimit();
     }
 
     private void ApplyStoredVisibilityLimit()
     {
         float nearClip = Mathf.Max(0.01f, cameraNearClipPlane);
-        float visibilityMultiplier = lastLampHeldState ? HeldLampVisibilityMultiplier : 1f;
+        float decayMultiplier = GetVisibilityDecayMultiplier();
+        float visibilityMultiplier = (lastLampHeldState ? HeldLampVisibilityMultiplier : 1f) * decayMultiplier;
         float maxVisibleDistance = Mathf.Max(nearClip + 0.01f, limitedVisibilityDistance * visibilityMultiplier);
         float fogStartDistance = Mathf.Clamp(
             limitedVisibilityFogStartDistance * visibilityMultiplier,
@@ -212,6 +213,16 @@ public class SimpleFirstPersonController : MonoBehaviour
             limitedVisibilityFogColor,
             limitedVisibilityVignetteIntensity,
             limitedVisibilityVignetteSmoothness);
+    }
+
+    private float GetVisibilityDecayMultiplier()
+    {
+        if (!hasLimitedVisibility)
+            return 1f;
+
+        float elapsed = Mathf.Max(0f, Time.time - limitedVisibilityStartTime);
+        float progress = Mathf.Clamp01(elapsed / VisibilityDecayDuration);
+        return Mathf.Lerp(1f, MinimumVisibilityMultiplier, progress);
     }
 
     private bool IsLampHeld()
