@@ -260,11 +260,6 @@ MonoBehaviour:
   moveSpeed: 4
   jumpHeight: 0
   gravity: -1
-  controllerHeight: 1.68
-  stairSlopeLimit: 85
-  stairStepOffset: 0.25
-  controllerSkinWidth: 0.08
-  controllerMinMoveDistance: 0
   mouseSensitivity: 0.1
   maxLookAngle: 80
   cameraNearClipPlane: 0.03
