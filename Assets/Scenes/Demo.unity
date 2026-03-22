@@ -10611,6 +10611,22 @@ PrefabInstance:
       propertyPath: insideDetector
       value: 
       objectReference: {fileID: 889660907}
+    - target: {fileID: 7745505477362103665, guid: 38231e0d8806baa41bdf9179390874e5, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7745505477362103665, guid: 38231e0d8806baa41bdf9179390874e5, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7745505477362103665, guid: 38231e0d8806baa41bdf9179390874e5, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7745505477362103665, guid: 38231e0d8806baa41bdf9179390874e5, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

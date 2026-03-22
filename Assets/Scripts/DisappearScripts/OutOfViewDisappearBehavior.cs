@@ -2,7 +2,7 @@ using UnityEngine;
 
 public class OutOfViewDisappearBehavior : BaseDisappearBehavior
 {
-    public override void PerformDisappear(Plane[] cameraPlanes)
+    public override void Perform(Plane[] cameraPlanes)
     {
         if (!GeometryUtility.TestPlanesAABB(cameraPlanes, disappearRenderer.bounds))
         {

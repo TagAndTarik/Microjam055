@@ -2,7 +2,7 @@ using UnityEngine;
 
 public class ObjectInViewDisappearBehavior : BaseDisappearBehavior
 {
-    public override void PerformDisappear(Plane[] cameraPlanes)
+    public override void Perform(Plane[] cameraPlanes)
     {
         if(inView)
         {
@@ -23,4 +23,6 @@ public class ObjectInViewDisappearBehavior : BaseDisappearBehavior
 
         }
     }
+
+
 }

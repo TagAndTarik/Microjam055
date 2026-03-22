@@ -909,80 +909,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 4133749718763332898, guid: 7bb52cc09c8c76e43a75786dccaf3fa4, type: 3}
   m_PrefabInstance: {fileID: 1643964631}
   m_PrefabAsset: {fileID: 0}
---- !u!1 &1728037343
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1728037346}
-  - component: {fileID: 1728037345}
-  - component: {fileID: 1728037344}
-  m_Layer: 0
-  m_Name: target pillow location
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &1728037344
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1728037343}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: bbe810e9b7a54998911e967c0ce44364, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PutDownInteractable
-  previewSource: {fileID: 1479838825}
-  acceptedPlacementId: testing-pillow
-  hoverMessage: Put down pillow
-  hoverMessageFont: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
-  hoverMessageFontSize: 18
-  hoverMessageColor: {r: 1, g: 1, b: 1, a: 0.95}
-  interactionColliderPadding: {x: 0.08, y: 0.08, z: 0.08}
-  previewScale: 0.85
---- !u!65 &1728037345
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1728037343}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 1
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 0.35, y: 0.35, z: 0.35}
-  m_Center: {x: 0, y: 0, z: 0}
---- !u!4 &1728037346
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1728037343}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0.9659258, z: 0, w: 0.2588191}
-  m_LocalPosition: {x: 1.9411898, y: 0.74964434, z: -8.265738}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 150, z: 0}
 --- !u!1001 &1918617600
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1164,6 +1090,67 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 38231e0d8806baa41bdf9179390874e5, type: 3}
+--- !u!1001 &3385193078030930564
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 2542437773271384417, guid: 04ec4e889642576418f5604b85ae11a1, type: 3}
+      propertyPath: previewSource
+      value: 
+      objectReference: {fileID: 1479838825}
+    - target: {fileID: 3072544243030050903, guid: 04ec4e889642576418f5604b85ae11a1, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 1.9411898
+      objectReference: {fileID: 0}
+    - target: {fileID: 3072544243030050903, guid: 04ec4e889642576418f5604b85ae11a1, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.74964434
+      objectReference: {fileID: 0}
+    - target: {fileID: 3072544243030050903, guid: 04ec4e889642576418f5604b85ae11a1, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -8.265738
+      objectReference: {fileID: 0}
+    - target: {fileID: 3072544243030050903, guid: 04ec4e889642576418f5604b85ae11a1, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.2588191
+      objectReference: {fileID: 0}
+    - target: {fileID: 3072544243030050903, guid: 04ec4e889642576418f5604b85ae11a1, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3072544243030050903, guid: 04ec4e889642576418f5604b85ae11a1, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0.9659258
+      objectReference: {fileID: 0}
+    - target: {fileID: 3072544243030050903, guid: 04ec4e889642576418f5604b85ae11a1, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3072544243030050903, guid: 04ec4e889642576418f5604b85ae11a1, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3072544243030050903, guid: 04ec4e889642576418f5604b85ae11a1, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 150
+      objectReference: {fileID: 0}
+    - target: {fileID: 3072544243030050903, guid: 04ec4e889642576418f5604b85ae11a1, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3125428141227114562, guid: 04ec4e889642576418f5604b85ae11a1, type: 3}
+      propertyPath: m_Name
+      value: target pillow location
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 04ec4e889642576418f5604b85ae11a1, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -1176,4 +1163,4 @@ SceneRoots:
   - {fileID: 473054945}
   - {fileID: 1479838823}
   - {fileID: 1203150728}
-  - {fileID: 1728037346}
+  - {fileID: 3385193078030930564}

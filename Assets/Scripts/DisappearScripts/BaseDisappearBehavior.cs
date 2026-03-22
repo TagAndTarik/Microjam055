@@ -9,7 +9,7 @@ public abstract class BaseDisappearBehavior : MonoBehaviour
     public PickupInteractable pickupInteractable;
 
 
-    public abstract void PerformDisappear(Plane[] cameraPlanes);
+    public abstract void Perform(Plane[] cameraPlanes);
 
     private void Start()
     {
@@ -22,10 +22,10 @@ public abstract class BaseDisappearBehavior : MonoBehaviour
     {
         if (initiated)
         {
-            PerformDisappear(PlayerManager.PlayerManagerInstance.cameraPlanes);
+            Perform(PlayerManager.PlayerManagerInstance.cameraPlanes);
         }
     }
-    public void StartDisappearing()
+    public virtual void StartDisappearing()
     {
         initiated = true;
     }
