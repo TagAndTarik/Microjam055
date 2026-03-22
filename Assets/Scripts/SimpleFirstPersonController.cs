@@ -47,7 +47,7 @@ public class SimpleFirstPersonController : MonoBehaviour
     private const int DefaultPlayerMessageFontSize = 22;
     private const float HeldLampVisibilityMultiplier = 2f;
     private const float MinimumVisibilityMultiplier = 0.01f;
-    private const float VisibilityDecayDuration = 10f;
+    private const float VisibilityDecayDuration = 20f;
     private static readonly Color DefaultHoverPromptColor = new Color(1f, 1f, 1f, 0.95f);
     private static readonly Color DefaultPlayerMessageColor = new Color(1f, 1f, 1f, 0.96f);
 
@@ -220,6 +220,27 @@ public class SimpleFirstPersonController : MonoBehaviour
         ApplyStoredVisibilityLimit();
     }
 
+    public bool ResetLampBrightnessTimer()
+    {
+        if (!hasLimitedVisibility)
+            return false;
+
+        limitedVisibilityStartTime = Time.time;
+        progress = 0f;
+        screenWackyAlpha = 0f;
+        lastLampHeldState = IsLampHeld();
+
+        if (screenEffectSettings != null && startSettings != null)
+            screenEffectSettings.CopySettings(startSettings);
+
+        ScreenWaveEffect screenWaveEffect = GetComponentInChildren<ScreenWaveEffect>();
+        if (screenWaveEffect != null && screenEffectSettings != null)
+            screenWaveEffect.SetProperties(screenEffectSettings);
+
+        ApplyStoredVisibilityLimit();
+        return true;
+    }
+
     private void UpdateLimitedVisibility()
     {
         if (!hasLimitedVisibility)
@@ -270,7 +291,7 @@ public class SimpleFirstPersonController : MonoBehaviour
         return Mathf.Lerp(1f, MinimumVisibilityMultiplier, progress);
     }
 
-    private bool IsLampHeld()
+    public bool IsLampHeld()
     {
         if (heldItemSocket == null)
             heldItemSocket = GetComponent<HeldItemSocket>();
