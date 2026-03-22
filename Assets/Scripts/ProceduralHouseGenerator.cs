@@ -12,26 +12,29 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
     private const float CellSize = 2.5f;
     private const float HalfCellSize = CellSize * 0.5f;
     private const float FloorHeight = 2.5f;
-    private const float InitialDoorDistance = CellSize * 5f;
+    private const float InitialDoorDistance = CellSize * 4.5f;
     private const float BoundaryDepth = 0.2f;
     private const float VisibilityProbeSize = 0.15f;
     private const float VisibilityVerticalOffset = 1.2f;
     private const float VisibilityLateralOffset = 0.45f;
-    private const float MinimumHiddenGenerationDistance = CellSize * 3.25f;
-    private const float WalkingStartDistance = 0.1f;
-    private const float VerticalWalkingTolerance = 0.05f;
-    private const int RequiredSegmentsAhead = 4;
-    private const int MaxGenerationAttemptsPerType = 12;
-    private const int MaxLevels = 3;
-    private const bool UseExteriorWindows = false;
-    private const int InitialStraightCells = 1;
-    private const int InitialTurnCells = 3;
-    private const float TurningHallwayChance = 0.9f;
-    private const float RoomWingChance = 0.8f;
-    private const float HallwayBranchChance = 0.85f;
+    private const float MinimumHiddenGenerationDistance = CellSize * 2.25f;
+    private const float EntryRoomActivationPadding = 0.2f;
+    private const int RequiredMainSegmentsAhead = 4;
+    private const int MaxGenerationAttemptsPerType = 10;
     private const int BranchSegmentsPerMainSegment = 2;
-    private const int MaxBranchDepth = 3;
-    private const int MaxPendingBranchFrontiers = 12;
+    private const int MaxBranchDepth = 4;
+    private const int MaxPendingFrontiers = 20;
+    private const int RetainedMainSegmentsBehind = 0;
+    private const int MaxSegmentsRecycledPerUpdate = 2;
+    private const float BranchRecycleDistance = CellSize * 7f;
+    private const bool UseExteriorWindows = true;
+    private const float RoomExtraExitChance = 0.8f;
+    private const float HallwayTurnChance = 0.72f;
+    private const float HallwaySecondTurnChance = 0.3f;
+    private const float HallwayBranchChance = 0.7f;
+    private const float LoopDoorChance = 0.18f;
+    private const float RoomWindowChance = 0.3f;
+    private const float HallWindowChance = 0.22f;
 
     private static readonly Direction[] AllDirections =
     {
@@ -46,33 +49,30 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
     private readonly Dictionary<BoundaryKey, BoundaryVisualType> boundaryVisuals = new Dictionary<BoundaryKey, BoundaryVisualType>();
     private readonly HashSet<BoundaryKey> doorBoundaries = new HashSet<BoundaryKey>();
     private readonly HashSet<BoundaryKey> openBoundaries = new HashSet<BoundaryKey>();
+    private readonly HashSet<BoundaryKey> boundaryUpdateSet = new HashSet<BoundaryKey>();
     private readonly List<SegmentData> segments = new List<SegmentData>();
     private readonly List<int> mainPathSegmentIndices = new List<int>();
-    private readonly List<PendingBranchFrontier> pendingBranchFrontiers = new List<PendingBranchFrontier>();
-    private readonly List<BoundaryKey> boundaryRemovalBuffer = new List<BoundaryKey>();
+    private readonly List<PendingFrontier> pendingFrontiers = new List<PendingFrontier>();
 
     private GameObject floorPrefab;
     private GameObject wallPrefab;
     private GameObject ceilingPrefab;
     private GameObject doorWallPrefab;
     private GameObject windowWallPrefab;
-    private GameObject stairsPrefab;
 
     private System.Random random;
     private Transform playerTransform;
     private Camera playerCamera;
-    private CharacterController playerController;
     private Vector3 worldGridOrigin;
     private Direction initialDirection;
     private Frontier mainTailFrontier;
+    private Bounds entryRoomBounds;
+    private BoundaryKey entryExitBoundary;
     private int sessionSeed;
     private int currentMainPathIndex;
     private int branchSegmentCount;
-    private Vector3 previousPlayerPosition;
-    private float groundedWalkDistance;
     private bool initialized;
     private bool generationStarted;
-    private GameObject previewEntranceDoor;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Bootstrap()
@@ -98,7 +98,6 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
 
         ConfigureTestingLighting();
         initialized = true;
-        previousPlayerPosition = playerTransform != null ? playerTransform.position : Vector3.zero;
     }
 
     private void Update()
@@ -107,7 +106,6 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
             return;
 
         ResolvePlayerReferences();
-
         if (playerTransform == null || playerCamera == null)
             return;
 
@@ -116,13 +114,14 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
             if (CanBeginGeneration())
                 BeginGeneration();
 
-            previousPlayerPosition = playerTransform.position;
             return;
         }
 
         currentMainPathIndex = FindCurrentMainPathIndex(playerTransform.position);
+        RecycleStaleSegments();
+        PrunePendingFrontiers();
+        currentMainPathIndex = FindCurrentMainPathIndex(playerTransform.position);
         EnsureGenerationBuffers(false);
-        previousPlayerPosition = playerTransform.position;
     }
 
     private bool TryInitialize()
@@ -138,7 +137,7 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         random = new System.Random(sessionSeed);
         initialDirection = GetClosestDirection(playerTransform.forward);
         worldGridOrigin = ComputeInitialOrigin(playerTransform.position, initialDirection);
-        SpawnPreviewEntranceDoor();
+        BuildEntryAntechamber();
         return true;
     }
 
@@ -149,14 +148,12 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         ceilingPrefab = Resources.Load<GameObject>(ResourceFolder + "Ceiling");
         doorWallPrefab = Resources.Load<GameObject>(ResourceFolder + "DoorWall");
         windowWallPrefab = Resources.Load<GameObject>(ResourceFolder + "WindowWall");
-        stairsPrefab = Resources.Load<GameObject>(ResourceFolder + "Stairs");
 
         return floorPrefab != null &&
                wallPrefab != null &&
                ceilingPrefab != null &&
                doorWallPrefab != null &&
-               windowWallPrefab != null &&
-               stairsPrefab != null;
+               windowWallPrefab != null;
     }
 
     private void ResolvePlayerReferences()
@@ -167,9 +164,6 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
             if (controller != null)
                 playerTransform = controller.transform;
         }
-
-        if (playerController == null && playerTransform != null)
-            playerController = playerTransform.GetComponent<CharacterController>();
 
         if (playerCamera == null)
             playerCamera = Camera.main;
@@ -202,96 +196,78 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         DynamicGI.UpdateEnvironment();
     }
 
+    private void BuildEntryAntechamber()
+    {
+        cells.Clear();
+        boundaryObjects.Clear();
+        boundaryVisuals.Clear();
+        doorBoundaries.Clear();
+        openBoundaries.Clear();
+        boundaryUpdateSet.Clear();
+        segments.Clear();
+        mainPathSegmentIndices.Clear();
+        pendingFrontiers.Clear();
+        generationStarted = false;
+        branchSegmentCount = 0;
+        currentMainPathIndex = 0;
+
+        SegmentBlueprint blueprint = new SegmentBlueprint(SegmentType.Entry);
+        GridCoord firstCell = GridCoord.Zero;
+        GridCoord secondCell = firstCell.Step(initialDirection);
+        blueprint.AddCell(new CellSpec(firstCell, initialDirection));
+        blueprint.AddCell(new CellSpec(secondCell, initialDirection));
+        blueprint.ExitFrontier = new Frontier(secondCell, initialDirection);
+
+        SegmentData entrySegment = CommitBlueprint(blueprint);
+        entrySegment.IsActive = true;
+        entrySegment.IsMainPath = true;
+        segments.Add(entrySegment);
+        mainPathSegmentIndices.Add(entrySegment.Index);
+        mainTailFrontier = blueprint.ExitFrontier;
+        entryRoomBounds = entrySegment.WorldBounds;
+        entryExitBoundary = GetCanonicalBoundary(secondCell, initialDirection);
+
+        doorBoundaries.Add(GetCanonicalBoundary(firstCell, Opposite(initialDirection)));
+        doorBoundaries.Add(entryExitBoundary);
+        RefreshBoundariesForSegment(entrySegment.Cells, null, blueprint);
+    }
+
+    private bool CanBeginGeneration()
+    {
+        if (playerTransform == null)
+            return false;
+
+        Bounds expanded = entryRoomBounds;
+        expanded.Expand(new Vector3(EntryRoomActivationPadding * 2f, 1.5f, EntryRoomActivationPadding * 2f));
+        return expanded.Contains(playerTransform.position);
+    }
+
     private void BeginGeneration()
     {
         if (generationStarted)
             return;
 
-        if (!TryBuildInitialHall(out SegmentBlueprint initialBlueprint))
-            return;
-
-        SegmentData initialSegment = CommitBlueprint(initialBlueprint);
-        segments.Add(initialSegment);
-        mainPathSegmentIndices.Clear();
-        pendingBranchFrontiers.Clear();
-        mainPathSegmentIndices.Add(initialSegment.Index);
-        currentMainPathIndex = 0;
-        branchSegmentCount = 0;
-
-        BoundaryKey entranceBoundary = GetCanonicalBoundary(initialBlueprint.EntranceDoorCell, initialBlueprint.EntranceDoorSide);
-        doorBoundaries.Add(entranceBoundary);
-        if (previewEntranceDoor != null)
-        {
-            previewEntranceDoor.name = "Generated Entrance";
-            boundaryObjects[entranceBoundary] = previewEntranceDoor;
-            boundaryVisuals[entranceBoundary] = BoundaryVisualType.DoorWall;
-        }
-
-        mainTailFrontier = initialBlueprint.ExitFrontier;
-        EnqueueBranchFrontiers(initialBlueprint, MaxBranchDepth);
         generationStarted = true;
-
-        RebuildAllBoundaries();
         EnsureGenerationBuffers(false);
-    }
-
-    private void SpawnPreviewEntranceDoor()
-    {
-        BoundaryKey entranceBoundary = GetCanonicalBoundary(GridCoord.Zero, Opposite(initialDirection));
-        if (previewEntranceDoor != null)
-            Destroy(previewEntranceDoor);
-
-        boundaryObjects.Remove(entranceBoundary);
-        boundaryVisuals.Remove(entranceBoundary);
-
-        Vector3 position = GetBoundaryWorldPosition(GridCoord.Zero, Opposite(initialDirection));
-        Quaternion rotation = Quaternion.Euler(0f, GetDirectionYaw(Opposite(initialDirection)), 0f);
-        previewEntranceDoor = Instantiate(doorWallPrefab, position, rotation, transform);
-        previewEntranceDoor.name = "Generated Entrance Preview";
-        boundaryObjects[entranceBoundary] = previewEntranceDoor;
-        boundaryVisuals[entranceBoundary] = BoundaryVisualType.DoorWall;
-    }
-
-    private bool HasPlayerStartedWalking()
-    {
-        if (playerTransform == null)
-            return false;
-
-        Vector3 delta = playerTransform.position - previousPlayerPosition;
-        float horizontalDistance = new Vector2(delta.x, delta.z).magnitude;
-        bool grounded = playerController == null || playerController.isGrounded;
-        bool lowVerticalMotion = Mathf.Abs(delta.y) <= VerticalWalkingTolerance;
-
-        if (grounded && lowVerticalMotion && horizontalDistance > 0.0005f)
-            groundedWalkDistance += horizontalDistance;
-        else if (!grounded)
-            groundedWalkDistance = 0f;
-
-        return groundedWalkDistance >= WalkingStartDistance;
-    }
-
-    private bool CanBeginGeneration()
-    {
-        return HasPlayerStartedWalking();
     }
 
     private void EnsureGenerationBuffers(bool ignoreVisibility)
     {
-        int mainPathAttempts = 0;
-        while (mainPathSegmentIndices.Count - 1 - currentMainPathIndex < RequiredSegmentsAhead &&
-               mainPathAttempts < RequiredSegmentsAhead + 2)
+        int mainAttempts = 0;
+        while (mainPathSegmentIndices.Count - 1 - currentMainPathIndex < RequiredMainSegmentsAhead &&
+               mainAttempts < RequiredMainSegmentsAhead + 3)
         {
             if (!TryExtendMainPath(ignoreVisibility))
                 break;
 
-            mainPathAttempts++;
+            mainAttempts++;
         }
 
-        int targetBranchSegments = mainPathSegmentIndices.Count * BranchSegmentsPerMainSegment;
+        int targetBranchSegments = Mathf.Max(2, mainPathSegmentIndices.Count * BranchSegmentsPerMainSegment);
         int branchAttempts = 0;
-        while (branchSegmentCount < targetBranchSegments &&
-               pendingBranchFrontiers.Count > 0 &&
-               branchAttempts < targetBranchSegments + 4)
+        while ((branchSegmentCount < targetBranchSegments || HasPendingExteriorDoorFrontier()) &&
+               pendingFrontiers.Count > 0 &&
+               branchAttempts < targetBranchSegments + 6)
         {
             if (!TryExtendBranch(ignoreVisibility))
                 break;
@@ -300,163 +276,232 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         }
     }
 
+    private bool HasPendingExteriorDoorFrontier()
+    {
+        for (int i = 0; i < pendingFrontiers.Count; i++)
+        {
+            BoundaryKey boundary = GetCanonicalBoundary(pendingFrontiers[i].Frontier.SourceCell, pendingFrontiers[i].Frontier.Direction);
+            if (doorBoundaries.Contains(boundary) && IsExteriorBoundary(boundary))
+                return true;
+        }
+
+        return false;
+    }
+
+    private bool ShouldPreserveDoorFrontier(Frontier frontier)
+    {
+        return GetCanonicalBoundary(frontier.SourceCell, frontier.Direction).Equals(entryExitBoundary);
+    }
+
     private bool TryExtendMainPath(bool ignoreVisibility)
     {
-        BoundaryKey tailBoundary = GetCanonicalBoundary(mainTailFrontier.SourceCell, mainTailFrontier.Direction);
-        if (!CanGenerateAtBoundary(tailBoundary, ignoreVisibility))
+        BoundaryKey boundary = GetCanonicalBoundary(mainTailFrontier.SourceCell, mainTailFrontier.Direction);
+        if (!CanGenerateAtBoundary(boundary, ignoreVisibility))
             return false;
 
-        if (!TryBuildNextSegment(mainTailFrontier, out SegmentBlueprint blueprint))
+        HiddenBuildResult buildResult = TryBuildHiddenNextSegment(mainTailFrontier, ignoreVisibility, out SegmentBlueprint blueprint);
+        if (buildResult != HiddenBuildResult.Success)
+        {
+            if (buildResult == HiddenBuildResult.NoBlueprint && !ShouldPreserveDoorFrontier(mainTailFrontier))
+            {
+                SealFrontier(mainTailFrontier);
+                return TryPromoteBranchToMainTail(ignoreVisibility);
+            }
+
             return false;
+        }
 
-        ApplyBlueprintConnections(mainTailFrontier, blueprint);
-
-        SegmentData segment = CommitBlueprint(blueprint);
-        segments.Add(segment);
+        SegmentData segment = CommitSegment(mainTailFrontier, blueprint, countAsBranch: false);
         mainPathSegmentIndices.Add(segment.Index);
         mainTailFrontier = blueprint.ExitFrontier;
         EnqueueBranchFrontiers(blueprint, MaxBranchDepth);
-        RebuildAllBoundaries();
         return true;
     }
 
     private bool TryExtendBranch(bool ignoreVisibility)
     {
-        if (pendingBranchFrontiers.Count == 0)
+        if (pendingFrontiers.Count == 0)
             return false;
 
-        int startingIndex = random.Next(pendingBranchFrontiers.Count);
-        int iteration = 0;
-        while (iteration < pendingBranchFrontiers.Count)
+        int startIndex = random.Next(pendingFrontiers.Count);
+        for (int offset = 0; offset < pendingFrontiers.Count; offset++)
         {
-            int index = (startingIndex + iteration) % pendingBranchFrontiers.Count;
-            PendingBranchFrontier pending = pendingBranchFrontiers[index];
-            BoundaryKey branchBoundary = GetCanonicalBoundary(pending.Frontier.SourceCell, pending.Frontier.Direction);
-            if (!CanGenerateAtBoundary(branchBoundary, ignoreVisibility))
+            int index = (startIndex + offset) % pendingFrontiers.Count;
+            PendingFrontier pending = pendingFrontiers[index];
+            BoundaryKey boundary = GetCanonicalBoundary(pending.Frontier.SourceCell, pending.Frontier.Direction);
+            if (!CanGenerateAtBoundary(boundary, ignoreVisibility))
+                continue;
+
+            HiddenBuildResult buildResult = TryBuildHiddenNextSegment(pending.Frontier, ignoreVisibility, out SegmentBlueprint blueprint);
+            if (buildResult != HiddenBuildResult.Success)
             {
-                iteration++;
+                if (buildResult == HiddenBuildResult.NoBlueprint)
+                {
+                    pendingFrontiers.RemoveAt(index);
+                    SealFrontier(pending.Frontier);
+                    return true;
+                }
+
                 continue;
             }
 
-            if (!TryBuildNextSegment(pending.Frontier, out SegmentBlueprint blueprint))
-            {
-                pendingBranchFrontiers.RemoveAt(index);
-                if (index < startingIndex && startingIndex > 0)
-                    startingIndex--;
-
-                continue;
-            }
-
-            ApplyBlueprintConnections(pending.Frontier, blueprint);
-
-            SegmentData segment = CommitBlueprint(blueprint);
-            segments.Add(segment);
-            branchSegmentCount++;
-            pendingBranchFrontiers.RemoveAt(index);
+            pendingFrontiers.RemoveAt(index);
+            CommitSegment(pending.Frontier, blueprint, countAsBranch: true);
 
             int nextDepth = pending.RemainingDepth - 1;
             if (nextDepth > 0)
             {
-                EnqueueBranchFrontier(blueprint.ExitFrontier, nextDepth);
+                EnqueueFrontier(blueprint.ExitFrontier, nextDepth);
                 EnqueueBranchFrontiers(blueprint, nextDepth);
             }
 
-            RebuildAllBoundaries();
             return true;
         }
 
         return false;
     }
 
-    private void ApplyBlueprintConnections(Frontier sourceFrontier, SegmentBlueprint blueprint)
+    private bool TryPromoteBranchToMainTail(bool ignoreVisibility)
     {
-        BoundaryKey connectionBoundary = GetCanonicalBoundary(sourceFrontier.SourceCell, sourceFrontier.Direction);
-        if (blueprint.UsesOpenEntrance)
-            openBoundaries.Add(connectionBoundary);
-        else
-            doorBoundaries.Add(connectionBoundary);
+        if (pendingFrontiers.Count == 0)
+            return false;
 
-        for (int i = 0; i < blueprint.OpenBoundaryCount; i++)
-            openBoundaries.Add(blueprint.OpenBoundaries[i]);
-    }
-
-    private bool CanGenerateAtBoundary(BoundaryKey boundary, bool ignoreVisibility)
-    {
-        if (ignoreVisibility)
-            return true;
-
-        Transform referenceTransform = playerCamera != null ? playerCamera.transform : playerTransform;
-        if (referenceTransform != null)
+        int selectedIndex = -1;
+        for (int i = 0; i < pendingFrontiers.Count; i++)
         {
-            Vector3 boundaryPosition = GetBoundaryWorldPosition(boundary.Cell, boundary.Side);
-            Vector3 referencePosition = referenceTransform.position;
-            Vector2 horizontalDelta = new Vector2(boundaryPosition.x - referencePosition.x, boundaryPosition.z - referencePosition.z);
-            if (horizontalDelta.magnitude < MinimumHiddenGenerationDistance)
-                return false;
+            BoundaryKey boundary = GetCanonicalBoundary(pendingFrontiers[i].Frontier.SourceCell, pendingFrontiers[i].Frontier.Direction);
+            if (ignoreVisibility || CanGenerateAtBoundary(boundary, false))
+            {
+                selectedIndex = i;
+                break;
+            }
         }
 
-        return IsBoundaryHidden(boundary);
+        if (selectedIndex < 0)
+            selectedIndex = 0;
+
+        mainTailFrontier = pendingFrontiers[selectedIndex].Frontier;
+        pendingFrontiers.RemoveAt(selectedIndex);
+        return true;
     }
 
-    private SegmentType[] BuildTypeOrder()
+    private SegmentData CommitSegment(Frontier entranceFrontier, SegmentBlueprint blueprint, bool countAsBranch)
     {
-        return random.NextDouble() < 0.7d
-            ? new[] { SegmentType.Room, SegmentType.Hallway }
-            : new[] { SegmentType.Hallway, SegmentType.Room };
+        doorBoundaries.Add(GetCanonicalBoundary(entranceFrontier.SourceCell, entranceFrontier.Direction));
+
+        SegmentData segment = CommitBlueprint(blueprint);
+        segments.Add(segment);
+        segment.IsActive = true;
+        segment.IsMainPath = !countAsBranch;
+
+        if (countAsBranch)
+            branchSegmentCount++;
+
+        RefreshBoundariesForSegment(segment.Cells, entranceFrontier, blueprint);
+        return segment;
     }
 
-    private bool TryBuildInitialHall(out SegmentBlueprint blueprint)
+    private HiddenBuildResult TryBuildHiddenNextSegment(Frontier frontier, bool ignoreVisibility, out SegmentBlueprint blueprint)
     {
-        GridCoord entranceCell = GridCoord.Zero;
-        Direction turnDirection = random.Next(2) == 0
-            ? TurnLeft(initialDirection)
-            : TurnRight(initialDirection);
-
-        SegmentBlueprint candidate = new SegmentBlueprint
+        const int hiddenAttempts = 4;
+        bool foundVisibleCandidate = false;
+        for (int attempt = 0; attempt < hiddenAttempts; attempt++)
         {
-            Type = SegmentType.Hallway,
-            EntranceDoorCell = entranceCell,
-            EntranceDoorSide = Opposite(initialDirection),
-            UsesOpenEntrance = false
-        };
+            if (!TryBuildNextSegment(frontier, out blueprint))
+                return foundVisibleCandidate ? HiddenBuildResult.VisibleOnly : HiddenBuildResult.NoBlueprint;
 
-        GridCoord current = entranceCell;
-        candidate.AddCell(new CellSpec(current, CellKind.Standard, initialDirection));
+            if (ignoreVisibility || IsBlueprintHidden(frontier, blueprint))
+                return HiddenBuildResult.Success;
 
-        for (int i = 1; i < InitialStraightCells; i++)
-        {
-            current = current.Step(initialDirection);
-            candidate.AddCell(new CellSpec(current, CellKind.Standard, initialDirection));
+            foundVisibleCandidate = true;
         }
 
-        for (int i = 0; i < InitialTurnCells; i++)
-        {
-            current = current.Step(turnDirection);
-            candidate.AddCell(new CellSpec(current, CellKind.Standard, turnDirection));
-        }
+        blueprint = default;
+        return foundVisibleCandidate ? HiddenBuildResult.VisibleOnly : HiddenBuildResult.NoBlueprint;
+    }
 
-        Frontier frontier = new Frontier(candidate.Cells[candidate.CellCount - 1].Coord, turnDirection);
-        if (!IsBlueprintValid(candidate, frontier))
+    private bool TryBuildNextSegment(Frontier frontier, out SegmentBlueprint blueprint)
+    {
+        GridCoord entranceCell = frontier.SourceCell.Step(frontier.Direction);
+        SegmentType sourceType = GetSegmentTypeAt(frontier.SourceCell);
+
+        if (sourceType == SegmentType.Entry || sourceType == SegmentType.Room)
         {
+            for (int attempt = 0; attempt < MaxGenerationAttemptsPerType; attempt++)
+            {
+                if (TryBuildHallwayBlueprint(entranceCell, frontier.Direction, out blueprint))
+                    return true;
+            }
+
             blueprint = default;
             return false;
         }
 
-        candidate.ExitFrontier = frontier;
-        TryAddHallwayBranches(candidate);
-        blueprint = candidate;
-        return true;
-    }
+        SegmentType firstType = random.NextDouble() < 0.62d ? SegmentType.Room : SegmentType.Hallway;
+        SegmentType secondType = firstType == SegmentType.Room ? SegmentType.Hallway : SegmentType.Room;
 
-    private bool TryBuildInitialRoom(out SegmentBlueprint blueprint)
-    {
-        GridCoord entranceCell = GridCoord.Zero;
         for (int attempt = 0; attempt < MaxGenerationAttemptsPerType; attempt++)
         {
-            if (TryBuildRoomBlueprint(entranceCell, initialDirection, out blueprint))
+            if (TryBuildSegment(frontier.Direction, entranceCell, firstType, out blueprint))
+                return true;
+        }
+
+        for (int attempt = 0; attempt < MaxGenerationAttemptsPerType; attempt++)
+        {
+            if (TryBuildSegment(frontier.Direction, entranceCell, secondType, out blueprint))
+                return true;
+        }
+
+        blueprint = default;
+        return false;
+    }
+
+    private bool TryBuildSegment(Direction entryDirection, GridCoord entranceCell, SegmentType type, out SegmentBlueprint blueprint)
+    {
+        switch (type)
+        {
+            case SegmentType.Room:
+                return TryBuildRoomBlueprint(entranceCell, entryDirection, out blueprint);
+            default:
+                return TryBuildHallwayBlueprint(entranceCell, entryDirection, out blueprint);
+        }
+    }
+
+    private bool TryBuildRoomBlueprint(GridCoord entranceCell, Direction entryDirection, out SegmentBlueprint blueprint)
+    {
+        int width = RollRoomDimension();
+        int depth = RollRoomDimension();
+        int leftCells = random.Next(0, width);
+        int rightCells = width - 1 - leftCells;
+
+        SegmentBlueprint candidate = new SegmentBlueprint(SegmentType.Room);
+        for (int forward = 0; forward < depth; forward++)
+        {
+            for (int lateral = -leftCells; lateral <= rightCells; lateral++)
             {
-                blueprint.EntranceDoorCell = entranceCell;
-                blueprint.EntranceDoorSide = Opposite(initialDirection);
+                GridCoord coord = OffsetFromEntrance(entranceCell, entryDirection, forward, lateral);
+                candidate.AddCell(new CellSpec(coord, entryDirection));
+            }
+        }
+
+        Direction[] exitDirections =
+        {
+            entryDirection,
+            TurnLeft(entryDirection),
+            TurnRight(entryDirection)
+        };
+
+        Shuffle(exitDirections);
+        for (int i = 0; i < exitDirections.Length; i++)
+        {
+            Frontier exitFrontier = CreateRoomExit(entranceCell, entryDirection, depth, leftCells, rightCells, exitDirections[i]);
+            candidate.ExitFrontier = exitFrontier;
+            candidate.ClearBranchFrontiers();
+            TryAddRoomBranches(candidate, entranceCell, entryDirection, depth, leftCells, rightCells, exitFrontier.Direction);
+
+            if (IsBlueprintValid(candidate))
+            {
+                blueprint = candidate;
                 return true;
             }
         }
@@ -465,105 +510,8 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         return false;
     }
 
-    private bool TryBuildNextSegment(Frontier frontier, out SegmentBlueprint blueprint)
-    {
-        SegmentType[] types = BuildTypeOrder();
-        for (int i = 0; i < types.Length; i++)
-        {
-            for (int attempt = 0; attempt < MaxGenerationAttemptsPerType; attempt++)
-            {
-                switch (types[i])
-                {
-                    case SegmentType.Room:
-                        if (TryBuildRoomBlueprint(frontier.SourceCell.Step(frontier.Direction), frontier.Direction, out blueprint))
-                            return true;
-                        break;
-                    case SegmentType.Hallway:
-                        if (TryBuildHallwayBlueprint(frontier.SourceCell.Step(frontier.Direction), frontier.Direction, out blueprint))
-                            return true;
-                        break;
-                }
-            }
-        }
-
-        blueprint = default;
-        return false;
-    }
-
-    private bool TryBuildRoomBlueprint(GridCoord entranceCell, Direction entryDirection, out SegmentBlueprint blueprint)
-    {
-        int width = random.Next(3, 6);
-        int depth = random.Next(3, 6);
-        int leftCells = random.Next(0, width);
-        int rightCells = width - 1 - leftCells;
-
-        SegmentBlueprint candidate = new SegmentBlueprint
-        {
-            Type = SegmentType.Room,
-            EntranceDoorCell = entranceCell,
-            EntranceDoorSide = Opposite(entryDirection),
-            UsesOpenEntrance = false
-        };
-
-        for (int forward = 0; forward < depth; forward++)
-        {
-            for (int lateral = -leftCells; lateral <= rightCells; lateral++)
-            {
-                GridCoord coord = OffsetFromEntrance(entranceCell, entryDirection, forward, lateral);
-                candidate.AddCell(new CellSpec(coord, CellKind.Standard, entryDirection));
-            }
-        }
-
-        TryAddRoomWing(candidate, entranceCell, entryDirection, depth, leftCells, rightCells);
-
-        Direction[] exitChoices = BuildRoomExitChoices(entryDirection);
-        Shuffle(exitChoices);
-
-        for (int i = 0; i < exitChoices.Length; i++)
-        {
-            Frontier frontier = CreateRoomExit(entranceCell, entryDirection, depth, leftCells, rightCells, exitChoices[i]);
-            if (!IsBlueprintValid(candidate, frontier))
-                continue;
-
-            candidate.ExitFrontier = frontier;
-            TryAddRoomBranches(candidate, entranceCell, entryDirection, depth, leftCells, rightCells, frontier.Direction);
-            blueprint = candidate;
-            return true;
-        }
-
-        blueprint = default;
-        return false;
-    }
-
-    private void TryAddRoomWing(
-        SegmentBlueprint candidate,
-        GridCoord entranceCell,
-        Direction entryDirection,
-        int depth,
-        int leftCells,
-        int rightCells)
-    {
-        if (random.NextDouble() > RoomWingChance)
-            return;
-
-        Direction wingDirection = random.Next(2) == 0
-            ? TurnLeft(entryDirection)
-            : TurnRight(entryDirection);
-
-        int forward = depth > 1 ? random.Next(1, depth) : 0;
-        int lateral = wingDirection == TurnLeft(entryDirection) ? -leftCells : rightCells;
-        int wingLength = random.Next(1, 3);
-
-        GridCoord current = OffsetFromEntrance(entranceCell, entryDirection, forward, lateral);
-        for (int i = 0; i < wingLength; i++)
-        {
-            current = current.Step(wingDirection);
-            candidate.AddCell(new CellSpec(current, CellKind.Standard, wingDirection));
-        }
-    }
-
     private void TryAddRoomBranches(
-        SegmentBlueprint candidate,
+        SegmentBlueprint blueprint,
         GridCoord entranceCell,
         Direction entryDirection,
         int depth,
@@ -571,180 +519,157 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         int rightCells,
         Direction mainExitDirection)
     {
-        List<Direction> extraDirections = new List<Direction>
+        List<Direction> candidates = new List<Direction>
         {
             entryDirection,
             TurnLeft(entryDirection),
             TurnRight(entryDirection)
         };
 
-        extraDirections.Remove(mainExitDirection);
-        Shuffle(extraDirections);
+        candidates.Remove(mainExitDirection);
+        Shuffle(candidates);
 
-        int extraExitTarget = random.NextDouble() < 0.75d ? 2 : 1;
-        int addedExits = 0;
-        for (int i = 0; i < extraDirections.Count && addedExits < extraExitTarget; i++)
+        int targetBranchCount = random.NextDouble() < RoomExtraExitChance ? 2 : 1;
+        for (int i = 0; i < candidates.Count && blueprint.BranchFrontierCount < targetBranchCount; i++)
         {
-            Frontier branchFrontier = CreateRoomExit(
-                entranceCell,
-                entryDirection,
-                depth,
-                leftCells,
-                rightCells,
-                extraDirections[i]);
-
-            if (!IsBlueprintValid(candidate, branchFrontier))
+            Frontier branch = CreateRoomExit(entranceCell, entryDirection, depth, leftCells, rightCells, candidates[i]);
+            if (FrontierEquals(branch, blueprint.ExitFrontier))
                 continue;
 
-            candidate.AddBranchFrontier(branchFrontier);
-            addedExits++;
+            blueprint.AddBranchFrontier(branch);
         }
     }
 
     private bool TryBuildHallwayBlueprint(GridCoord entranceCell, Direction entryDirection, out SegmentBlueprint blueprint)
     {
-        SegmentBlueprint candidate = new SegmentBlueprint
-        {
-            Type = SegmentType.Hallway,
-            EntranceDoorCell = entranceCell,
-            EntranceDoorSide = Opposite(entryDirection),
-            UsesOpenEntrance = false
-        };
-
+        SegmentBlueprint candidate = new SegmentBlueprint(SegmentType.Hallway);
         GridCoord current = entranceCell;
         Direction currentDirection = entryDirection;
-        candidate.AddCell(new CellSpec(current, CellKind.Standard, currentDirection));
+        candidate.AddCell(new CellSpec(current, currentDirection));
 
-        int straightLength = random.Next(2, 4);
-        for (int i = 1; i < straightLength; i++)
+        int firstLegLength = RollHallLength();
+        for (int i = 0; i < firstLegLength; i++)
         {
             current = current.Step(currentDirection);
-            candidate.AddCell(new CellSpec(current, CellKind.Standard, currentDirection));
+            candidate.AddCell(new CellSpec(current, currentDirection));
         }
 
-        if (random.NextDouble() < TurningHallwayChance)
+        if (random.NextDouble() < HallwayTurnChance)
         {
             currentDirection = random.Next(2) == 0
-                ? TurnLeft(entryDirection)
-                : TurnRight(entryDirection);
+                ? TurnLeft(currentDirection)
+                : TurnRight(currentDirection);
 
-            int turnLength = random.Next(1, 4);
+            int turnLength = random.Next(1, 3);
             for (int i = 0; i < turnLength; i++)
             {
                 current = current.Step(currentDirection);
-                candidate.AddCell(new CellSpec(current, CellKind.Standard, currentDirection));
+                candidate.AddCell(new CellSpec(current, currentDirection));
             }
-        }
-        else
-        {
-            int extraLength = random.Next(0, 3);
-            for (int i = 0; i < extraLength; i++)
+
+            if (random.NextDouble() < HallwaySecondTurnChance)
             {
-                current = current.Step(currentDirection);
-                candidate.AddCell(new CellSpec(current, CellKind.Standard, currentDirection));
+                currentDirection = random.Next(2) == 0
+                    ? TurnLeft(currentDirection)
+                    : TurnRight(currentDirection);
+
+                int secondTurnLength = random.Next(1, 3);
+                for (int i = 0; i < secondTurnLength; i++)
+                {
+                    current = current.Step(currentDirection);
+                    candidate.AddCell(new CellSpec(current, currentDirection));
+                }
             }
         }
-
-        Frontier frontier = new Frontier(candidate.Cells[candidate.CellCount - 1].Coord, currentDirection);
-        if (!IsBlueprintValid(candidate, frontier))
+        else if (random.NextDouble() < 0.5d)
         {
-            blueprint = default;
-            return false;
+            current = current.Step(currentDirection);
+            candidate.AddCell(new CellSpec(current, currentDirection));
         }
 
-        candidate.ExitFrontier = frontier;
+        candidate.ExitFrontier = new Frontier(current, currentDirection);
+        candidate.ClearBranchFrontiers();
         TryAddHallwayBranches(candidate);
-        blueprint = candidate;
-        return true;
-    }
 
-    private void TryAddHallwayBranches(SegmentBlueprint candidate)
-    {
-        if (candidate.CellCount < 2 || random.NextDouble() > HallwayBranchChance)
-            return;
-
-        List<int> candidateIndices = new List<int>();
-        for (int i = 1; i < candidate.CellCount - 1; i++)
-            candidateIndices.Add(i);
-
-        if (candidateIndices.Count == 0)
-            candidateIndices.Add(candidate.CellCount - 1);
-
-        Shuffle(candidateIndices);
-
-        int branchTarget = random.NextDouble() < 0.65d ? 2 : 1;
-        int addedBranches = 0;
-        for (int i = 0; i < candidateIndices.Count && addedBranches < branchTarget; i++)
+        if (IsBlueprintValid(candidate))
         {
-            CellSpec branchCell = candidate.Cells[candidateIndices[i]];
-            Direction[] branchDirections =
-            {
-                TurnLeft(branchCell.PrimaryDirection),
-                TurnRight(branchCell.PrimaryDirection)
-            };
-
-            Shuffle(branchDirections);
-            for (int directionIndex = 0; directionIndex < branchDirections.Length; directionIndex++)
-            {
-                Frontier branchFrontier = new Frontier(branchCell.Coord, branchDirections[directionIndex]);
-                if (!IsBlueprintValid(candidate, branchFrontier))
-                    continue;
-
-                candidate.AddBranchFrontier(branchFrontier);
-                addedBranches++;
-                break;
-            }
-        }
-    }
-
-    private bool TryBuildStaircaseBlueprint(GridCoord entranceCell, Direction entryDirection, out SegmentBlueprint blueprint)
-    {
-        if (entranceCell.Level >= MaxLevels - 1)
-        {
-            blueprint = default;
-            return false;
-        }
-
-        GridCoord landingCell = entranceCell.Step(entryDirection).WithLevel(entranceCell.Level + 1);
-        if (cells.ContainsKey(entranceCell) || cells.ContainsKey(landingCell))
-        {
-            blueprint = default;
-            return false;
-        }
-
-        SegmentBlueprint candidate = new SegmentBlueprint
-        {
-            Type = SegmentType.Staircase,
-            EntranceDoorCell = entranceCell,
-            EntranceDoorSide = Opposite(entryDirection),
-            UsesOpenEntrance = true
-        };
-
-        candidate.AddCell(new CellSpec(entranceCell, CellKind.StairBase, entryDirection));
-        candidate.AddCell(new CellSpec(landingCell, CellKind.StairLanding, entryDirection));
-        candidate.AddOpenBoundary(GetCanonicalBoundary(landingCell, Opposite(entryDirection)));
-
-        Direction[] exitChoices =
-        {
-            entryDirection,
-            TurnLeft(entryDirection),
-            TurnRight(entryDirection)
-        };
-
-        Shuffle(exitChoices);
-        for (int i = 0; i < exitChoices.Length; i++)
-        {
-            Frontier frontier = new Frontier(landingCell, exitChoices[i]);
-            if (!IsBlueprintValid(candidate, frontier))
-                continue;
-
-            candidate.ExitFrontier = frontier;
             blueprint = candidate;
             return true;
         }
 
         blueprint = default;
         return false;
+    }
+
+    private void TryAddHallwayBranches(SegmentBlueprint blueprint)
+    {
+        if (blueprint.CellCount < 2 || random.NextDouble() > HallwayBranchChance)
+            return;
+
+        List<int> interiorIndices = new List<int>();
+        for (int i = 1; i < blueprint.CellCount - 1; i++)
+            interiorIndices.Add(i);
+
+        if (interiorIndices.Count == 0)
+            interiorIndices.Add(blueprint.CellCount - 1);
+
+        Shuffle(interiorIndices);
+        int targetBranchCount = random.NextDouble() < 0.65d ? 2 : 1;
+        for (int i = 0; i < interiorIndices.Count && blueprint.BranchFrontierCount < targetBranchCount; i++)
+        {
+            CellSpec cell = blueprint.Cells[interiorIndices[i]];
+            Direction[] branchDirections =
+            {
+                TurnLeft(cell.PrimaryDirection),
+                TurnRight(cell.PrimaryDirection)
+            };
+
+            Shuffle(branchDirections);
+            for (int directionIndex = 0; directionIndex < branchDirections.Length; directionIndex++)
+            {
+                Frontier branch = new Frontier(cell.Coord, branchDirections[directionIndex]);
+                if (FrontierEquals(branch, blueprint.ExitFrontier))
+                    continue;
+
+                blueprint.AddBranchFrontier(branch);
+                break;
+            }
+        }
+    }
+
+    private bool IsBlueprintValid(SegmentBlueprint blueprint)
+    {
+        if (blueprint.CellCount == 0 || !blueprint.Contains(blueprint.ExitFrontier.SourceCell))
+            return false;
+
+        for (int i = 0; i < blueprint.CellCount; i++)
+        {
+            if (cells.ContainsKey(blueprint.Cells[i].Coord))
+                return false;
+        }
+
+        if (!IsFrontierAvailable(blueprint, blueprint.ExitFrontier))
+            return false;
+
+        for (int i = 0; i < blueprint.BranchFrontierCount; i++)
+        {
+            if (!IsFrontierAvailable(blueprint, blueprint.BranchFrontiers[i]))
+                return false;
+        }
+
+        return true;
+    }
+
+    private bool IsFrontierAvailable(SegmentBlueprint blueprint, Frontier frontier)
+    {
+        if (!blueprint.Contains(frontier.SourceCell))
+            return false;
+
+        GridCoord nextCell = frontier.SourceCell.Step(frontier.Direction);
+        if (cells.ContainsKey(nextCell) || blueprint.Contains(nextCell))
+            return false;
+
+        return true;
     }
 
     private SegmentData CommitBlueprint(SegmentBlueprint blueprint)
@@ -760,75 +685,67 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         };
 
         bool hasBounds = false;
-        Bounds segmentBounds = default;
-
+        Bounds bounds = default;
+        int minX = int.MaxValue;
+        int maxX = int.MinValue;
+        int minZ = int.MaxValue;
+        int maxZ = int.MinValue;
         for (int i = 0; i < blueprint.CellCount; i++)
         {
             CellSpec spec = blueprint.Cells[i];
             CellData cell = CreateCell(segment, spec);
             cells.Add(spec.Coord, cell);
             segment.Cells.Add(spec.Coord);
+            minX = Mathf.Min(minX, spec.Coord.X);
+            maxX = Mathf.Max(maxX, spec.Coord.X);
+            minZ = Mathf.Min(minZ, spec.Coord.Z);
+            maxZ = Mathf.Max(maxZ, spec.Coord.Z);
 
-            Bounds cellBounds = GetCellBounds(spec);
+            Bounds cellBounds = GetCellBounds(spec.Coord);
             if (!hasBounds)
             {
-                segmentBounds = cellBounds;
+                bounds = cellBounds;
                 hasBounds = true;
             }
             else
             {
-                segmentBounds.Encapsulate(cellBounds);
+                bounds.Encapsulate(cellBounds);
             }
         }
 
-        for (int i = 0; i < blueprint.CellCount; i++)
-        {
-            GridCoord cell = blueprint.Cells[i].Coord;
-            for (int directionIndex = 0; directionIndex < AllDirections.Length; directionIndex++)
-            {
-                Direction direction = AllDirections[directionIndex];
-                if (!blueprint.Contains(cell.Step(direction)))
-                    continue;
-
-                openBoundaries.Add(GetCanonicalBoundary(cell, direction));
-            }
-        }
-
-        segment.WorldBounds = segmentBounds;
+        AddInternalOpenBoundaries(blueprint);
+        AddLoopDoors(blueprint);
+        segment.WorldBounds = bounds;
         segment.ExitFrontier = blueprint.ExitFrontier;
+        segment.MinX = minX;
+        segment.MaxX = maxX;
+        segment.MinZ = minZ;
+        segment.MaxZ = maxZ;
+        segment.WindowPattern = DetermineWindowPattern(blueprint.Type);
         return segment;
     }
 
     private CellData CreateCell(SegmentData segment, CellSpec spec)
     {
         Vector3 worldPosition = GetCellWorldPosition(spec.Coord);
-        GameObject cellRoot = new GameObject($"{spec.Kind}_{spec.Coord.X}_{spec.Coord.Level}_{spec.Coord.Z}");
+        GameObject cellRoot = new GameObject($"Cell_{spec.Coord.X}_{spec.Coord.Z}");
         cellRoot.transform.SetParent(segment.Root, false);
         cellRoot.transform.position = worldPosition;
 
         Instantiate(floorPrefab, worldPosition, Quaternion.identity, cellRoot.transform);
-
-        if (spec.Kind == CellKind.StairBase)
-        {
-            Instantiate(
-                stairsPrefab,
-                worldPosition,
-                Quaternion.Euler(0f, GetDirectionYaw(spec.PrimaryDirection), 0f),
-                cellRoot.transform);
-        }
-        else
-        {
-            GameObject ceilingInstance = Instantiate(ceilingPrefab, worldPosition + Vector3.up * FloorHeight, Quaternion.identity, cellRoot.transform);
-            DisableAllColliders(ceilingInstance);
-        }
+        GameObject ceilingInstance = Instantiate(
+            ceilingPrefab,
+            worldPosition + Vector3.up * FloorHeight,
+            Quaternion.identity,
+            cellRoot.transform);
+        DisableAllColliders(ceilingInstance);
 
         return new CellData
         {
             Coord = spec.Coord,
-            Kind = spec.Kind,
-            PrimaryDirection = spec.PrimaryDirection,
             Root = cellRoot,
-            SegmentIndex = segment.Index
+            SegmentIndex = segment.Index,
+            PrimaryDirection = spec.PrimaryDirection
         };
     }
 
@@ -842,22 +759,73 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
             colliders[i].enabled = false;
     }
 
-    private bool IsBlueprintValid(SegmentBlueprint blueprint, Frontier exitFrontier)
+    private void AddInternalOpenBoundaries(SegmentBlueprint blueprint)
     {
-        if (!blueprint.Contains(exitFrontier.SourceCell))
-            return false;
-
-        GridCoord nextCell = exitFrontier.SourceCell.Step(exitFrontier.Direction);
-        if (cells.ContainsKey(nextCell) || blueprint.Contains(nextCell))
-            return false;
-
         for (int i = 0; i < blueprint.CellCount; i++)
         {
-            if (cells.ContainsKey(blueprint.Cells[i].Coord))
-                return false;
+            GridCoord cell = blueprint.Cells[i].Coord;
+            for (int directionIndex = 0; directionIndex < AllDirections.Length; directionIndex++)
+            {
+                Direction direction = AllDirections[directionIndex];
+                if (blueprint.Contains(cell.Step(direction)))
+                    openBoundaries.Add(GetCanonicalBoundary(cell, direction));
+            }
+        }
+    }
+
+    private void AddLoopDoors(SegmentBlueprint blueprint)
+    {
+        for (int i = 0; i < blueprint.CellCount; i++)
+        {
+            GridCoord cell = blueprint.Cells[i].Coord;
+            for (int directionIndex = 0; directionIndex < AllDirections.Length; directionIndex++)
+            {
+                Direction direction = AllDirections[directionIndex];
+                GridCoord neighbor = cell.Step(direction);
+                if (!cells.ContainsKey(neighbor) || blueprint.Contains(neighbor))
+                    continue;
+
+                SegmentType neighborType = GetSegmentTypeAt(neighbor);
+                if (blueprint.Type == SegmentType.Room && neighborType == SegmentType.Room)
+                    continue;
+
+                BoundaryKey boundary = GetCanonicalBoundary(cell, direction);
+                if (openBoundaries.Contains(boundary) || doorBoundaries.Contains(boundary))
+                    continue;
+
+                if (random.NextDouble() <= LoopDoorChance)
+                    doorBoundaries.Add(boundary);
+            }
+        }
+    }
+
+    private void RefreshBoundariesForSegment(IReadOnlyList<GridCoord> coords, Frontier? entranceFrontier, SegmentBlueprint blueprint)
+    {
+        boundaryUpdateSet.Clear();
+
+        if (entranceFrontier.HasValue)
+            boundaryUpdateSet.Add(GetCanonicalBoundary(entranceFrontier.Value.SourceCell, entranceFrontier.Value.Direction));
+
+        for (int i = 0; i < coords.Count; i++)
+        {
+            GridCoord cell = coords[i];
+            for (int directionIndex = 0; directionIndex < AllDirections.Length; directionIndex++)
+                boundaryUpdateSet.Add(GetCanonicalBoundary(cell, AllDirections[directionIndex]));
         }
 
-        return true;
+        boundaryUpdateSet.Add(GetCanonicalBoundary(blueprint.ExitFrontier.SourceCell, blueprint.ExitFrontier.Direction));
+        for (int i = 0; i < blueprint.BranchFrontierCount; i++)
+            boundaryUpdateSet.Add(GetCanonicalBoundary(blueprint.BranchFrontiers[i].SourceCell, blueprint.BranchFrontiers[i].Direction));
+
+        foreach (BoundaryKey boundary in boundaryUpdateSet)
+            UpdateBoundary(boundary, ResolveBoundaryVisual(boundary));
+    }
+
+    private void SealFrontier(Frontier frontier)
+    {
+        BoundaryKey boundary = GetCanonicalBoundary(frontier.SourceCell, frontier.Direction);
+        doorBoundaries.Remove(boundary);
+        UpdateBoundary(boundary, ResolveBoundaryVisual(boundary));
     }
 
     private void EnqueueBranchFrontiers(SegmentBlueprint blueprint, int remainingDepth)
@@ -866,25 +834,45 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
             return;
 
         for (int i = 0; i < blueprint.BranchFrontierCount; i++)
-            EnqueueBranchFrontier(blueprint.BranchFrontiers[i], remainingDepth);
+            EnqueueFrontier(blueprint.BranchFrontiers[i], remainingDepth);
     }
 
-    private void EnqueueBranchFrontier(Frontier frontier, int remainingDepth)
+    private void EnqueueFrontier(Frontier frontier, int remainingDepth)
     {
-        if (remainingDepth <= 0 || pendingBranchFrontiers.Count >= MaxPendingBranchFrontiers)
+        if (remainingDepth <= 0 || pendingFrontiers.Count >= MaxPendingFrontiers)
             return;
 
-        if (frontier.SourceCell.Equals(mainTailFrontier.SourceCell) && frontier.Direction == mainTailFrontier.Direction)
+        if (FrontierEquals(frontier, mainTailFrontier))
             return;
 
-        for (int i = 0; i < pendingBranchFrontiers.Count; i++)
+        for (int i = 0; i < pendingFrontiers.Count; i++)
         {
-            Frontier pending = pendingBranchFrontiers[i].Frontier;
-            if (pending.SourceCell.Equals(frontier.SourceCell) && pending.Direction == frontier.Direction)
+            if (FrontierEquals(pendingFrontiers[i].Frontier, frontier))
                 return;
         }
 
-        pendingBranchFrontiers.Add(new PendingBranchFrontier(frontier, remainingDepth));
+        pendingFrontiers.Add(new PendingFrontier(frontier, remainingDepth));
+    }
+
+    private bool CanGenerateAtBoundary(BoundaryKey boundary, bool ignoreVisibility)
+    {
+        if (ignoreVisibility)
+            return true;
+
+        if (CanGenerateBehindDoor(boundary))
+            return true;
+
+        Transform referenceTransform = playerCamera != null ? playerCamera.transform : playerTransform;
+        if (referenceTransform != null)
+        {
+            Vector3 boundaryPosition = GetBoundaryWorldPosition(boundary.Cell, boundary.Side);
+            Vector3 referencePosition = referenceTransform.position;
+            Vector2 horizontalDelta = new Vector2(boundaryPosition.x - referencePosition.x, boundaryPosition.z - referencePosition.z);
+            if (horizontalDelta.magnitude < MinimumHiddenGenerationDistance)
+                return false;
+        }
+
+        return IsBoundaryHidden(boundary);
     }
 
     private int FindCurrentMainPathIndex(Vector3 playerPosition)
@@ -912,38 +900,6 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         }
 
         return closestIndex;
-    }
-
-    private void RebuildAllBoundaries()
-    {
-        HashSet<BoundaryKey> activeKeys = new HashSet<BoundaryKey>();
-        foreach (KeyValuePair<GridCoord, CellData> pair in cells)
-        {
-            for (int i = 0; i < AllDirections.Length; i++)
-                activeKeys.Add(GetCanonicalBoundary(pair.Key, AllDirections[i]));
-        }
-
-        foreach (BoundaryKey key in activeKeys)
-            UpdateBoundary(key, ResolveBoundaryVisual(key));
-
-        boundaryRemovalBuffer.Clear();
-        foreach (KeyValuePair<BoundaryKey, GameObject> pair in boundaryObjects)
-        {
-            if (activeKeys.Contains(pair.Key))
-                continue;
-
-            boundaryRemovalBuffer.Add(pair.Key);
-        }
-
-        for (int i = 0; i < boundaryRemovalBuffer.Count; i++)
-        {
-            BoundaryKey key = boundaryRemovalBuffer[i];
-            if (boundaryObjects.TryGetValue(key, out GameObject boundaryObject) && boundaryObject != null)
-                Destroy(boundaryObject);
-
-            boundaryObjects.Remove(key);
-            boundaryVisuals.Remove(key);
-        }
     }
 
     private void UpdateBoundary(BoundaryKey key, BoundaryVisualType type)
@@ -980,7 +936,7 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         Vector3 position = GetBoundaryWorldPosition(key.Cell, key.Side);
         Quaternion rotation = Quaternion.Euler(0f, GetDirectionYaw(key.Side), 0f);
         GameObject boundaryObject = Instantiate(prefab, position, rotation, transform);
-        boundaryObject.name = $"{type}_{key.Cell.X}_{key.Cell.Level}_{key.Cell.Z}_{key.Side}";
+        boundaryObject.name = $"{type}_{key.Cell.X}_{key.Cell.Z}_{key.Side}";
         boundaryObjects[key] = boundaryObject;
         boundaryVisuals[key] = type;
     }
@@ -990,13 +946,8 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         bool hasA = cells.TryGetValue(key.Cell, out CellData cellA);
         GridCoord neighbor = key.Cell.Step(key.Side);
         bool hasB = cells.TryGetValue(neighbor, out CellData cellB);
-        Direction sideA = key.Side;
-        Direction sideB = Opposite(key.Side);
 
         if (!hasA && !hasB)
-            return BoundaryVisualType.None;
-
-        if ((hasA && cellA.SuppressesBoundary(sideA)) || (hasB && cellB.SuppressesBoundary(sideB)))
             return BoundaryVisualType.None;
 
         if (openBoundaries.Contains(key))
@@ -1009,7 +960,7 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
             return BoundaryVisualType.Wall;
 
         CellData exteriorCell = hasA ? cellA : cellB;
-        Direction exteriorSide = hasA ? sideA : sideB;
+        Direction exteriorSide = hasA ? key.Side : Opposite(key.Side);
         if (ShouldUseWindow(exteriorCell, exteriorSide))
             return BoundaryVisualType.WindowWall;
 
@@ -1018,25 +969,27 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
 
     private bool ShouldUseWindow(CellData cell, Direction side)
     {
-        if (!UseExteriorWindows)
+        if (!UseExteriorWindows || cell.SegmentIndex < 0 || cell.SegmentIndex >= segments.Count)
             return false;
 
-        if (cell.Kind != CellKind.Standard)
+        SegmentData segment = segments[cell.SegmentIndex];
+        if (segment.WindowPattern == WindowPattern.None)
             return false;
 
-        if (cell.SegmentIndex < 0 || cell.SegmentIndex >= segments.Count)
+        if (!IsExteriorBoundary(GetCanonicalBoundary(cell.Coord, side)))
             return false;
 
-        if (segments[cell.SegmentIndex].Type != SegmentType.Room)
-            return false;
-
-        int hash = sessionSeed;
-        hash = (hash * 397) ^ cell.Coord.X;
-        hash = (hash * 397) ^ cell.Coord.Level;
-        hash = (hash * 397) ^ cell.Coord.Z;
-        hash = (hash * 397) ^ (int)side;
-        hash &= int.MaxValue;
-        return (hash % 100) < 22;
+        switch (segment.WindowPattern)
+        {
+            case WindowPattern.RoomEastWest:
+                return IsSymmetricRoomWindow(cell, segment, side, Direction.West, Direction.East);
+            case WindowPattern.RoomNorthSouth:
+                return IsSymmetricRoomWindow(cell, segment, side, Direction.South, Direction.North);
+            case WindowPattern.HallAcross:
+                return IsSymmetricHallWindow(cell, side);
+            default:
+                return false;
+        }
     }
 
     private bool IsBoundaryHidden(BoundaryKey boundary)
@@ -1050,9 +1003,7 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
             return true;
 
         Vector3[] samplePoints = GetBoundarySamplePoints(boundary);
-        GameObject boundaryObject = boundaryObjects.TryGetValue(boundary, out GameObject existing)
-            ? existing
-            : null;
+        GameObject boundaryObject = boundaryObjects.TryGetValue(boundary, out GameObject existing) ? existing : null;
 
         for (int i = 0; i < samplePoints.Length; i++)
         {
@@ -1097,9 +1048,346 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         return boundaryObject == null;
     }
 
+    private bool IsBlueprintHidden(Frontier entranceFrontier, SegmentBlueprint blueprint)
+    {
+        if (playerCamera == null)
+            return true;
+
+        for (int i = 0; i < blueprint.CellCount; i++)
+        {
+            GridCoord coord = blueprint.Cells[i].Coord;
+            Vector3[] samplePoints = GetCellVisibilitySamplePoints(coord);
+            for (int sampleIndex = 0; sampleIndex < samplePoints.Length; sampleIndex++)
+            {
+                if (IsWorldPointVisible(samplePoints[sampleIndex]))
+                    return false;
+            }
+        }
+
+        BoundaryKey entranceBoundary = GetCanonicalBoundary(entranceFrontier.SourceCell, entranceFrontier.Direction);
+        HashSet<BoundaryKey> sampledBoundaries = new HashSet<BoundaryKey>();
+        for (int i = 0; i < blueprint.CellCount; i++)
+        {
+            GridCoord cell = blueprint.Cells[i].Coord;
+            for (int directionIndex = 0; directionIndex < AllDirections.Length; directionIndex++)
+            {
+                Direction direction = AllDirections[directionIndex];
+                GridCoord neighbor = cell.Step(direction);
+                if (blueprint.Contains(neighbor))
+                    continue;
+
+                BoundaryKey boundary = GetCanonicalBoundary(cell, direction);
+                if (!sampledBoundaries.Add(boundary))
+                    continue;
+
+                if (boundary.Equals(entranceBoundary) &&
+                    boundaryVisuals.TryGetValue(boundary, out BoundaryVisualType existingType) &&
+                    existingType == BoundaryVisualType.DoorWall)
+                {
+                    continue;
+                }
+
+                Vector3[] boundarySamplePoints = GetBoundarySamplePoints(boundary);
+                for (int sampleIndex = 0; sampleIndex < boundarySamplePoints.Length; sampleIndex++)
+                {
+                    if (IsWorldPointVisible(boundarySamplePoints[sampleIndex]))
+                        return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    private bool IsWorldPointVisible(Vector3 point)
+    {
+        Vector3 viewport = playerCamera.WorldToViewportPoint(point);
+        if (viewport.z <= 0f || viewport.x < 0f || viewport.x > 1f || viewport.y < 0f || viewport.y > 1f)
+            return false;
+
+        Vector3 origin = playerCamera.transform.position;
+        Vector3 direction = point - origin;
+        float distance = direction.magnitude;
+        if (distance <= 0.001f)
+            return true;
+
+        RaycastHit[] hits = Physics.RaycastAll(origin, direction / distance, distance - 0.02f, ~0, QueryTriggerInteraction.Ignore);
+        Array.Sort(hits, CompareHitsByDistance);
+        for (int i = 0; i < hits.Length; i++)
+        {
+            Collider hitCollider = hits[i].collider;
+            if (hitCollider == null)
+                continue;
+
+            if (playerTransform != null && hitCollider.transform.IsChildOf(playerTransform))
+                continue;
+
+            return false;
+        }
+
+        return true;
+    }
+
+    private Vector3[] GetCellVisibilitySamplePoints(GridCoord coord)
+    {
+        Vector3 center = GetCellWorldPosition(coord);
+        float inset = CellSize * 0.22f;
+        return new[]
+        {
+            center + new Vector3(0f, VisibilityVerticalOffset, 0f),
+            center + new Vector3(inset, VisibilityVerticalOffset, 0f),
+            center + new Vector3(-inset, VisibilityVerticalOffset, 0f),
+            center + new Vector3(0f, VisibilityVerticalOffset, inset),
+            center + new Vector3(0f, VisibilityVerticalOffset, -inset),
+            center + new Vector3(0f, FloorHeight * 0.82f, 0f)
+        };
+    }
+
+    private void RecycleStaleSegments()
+    {
+        if (playerTransform == null || segments.Count <= 1)
+            return;
+
+        int recycledCount = 0;
+        int keepFromMainIndex = Mathf.Max(1, currentMainPathIndex - RetainedMainSegmentsBehind);
+        int mainIndex = 1;
+        while (mainIndex < keepFromMainIndex && recycledCount < MaxSegmentsRecycledPerUpdate)
+        {
+            int segmentIndex = mainPathSegmentIndices[mainIndex];
+            if (!TryRecycleSegment(segmentIndex))
+            {
+                mainIndex++;
+                continue;
+            }
+
+            mainPathSegmentIndices.RemoveAt(mainIndex);
+            keepFromMainIndex--;
+            currentMainPathIndex = Mathf.Max(0, currentMainPathIndex - 1);
+            recycledCount++;
+        }
+
+        if (recycledCount >= MaxSegmentsRecycledPerUpdate)
+            return;
+
+        float recycleDistanceSqr = BranchRecycleDistance * BranchRecycleDistance;
+        for (int i = 1; i < segments.Count && recycledCount < MaxSegmentsRecycledPerUpdate; i++)
+        {
+            SegmentData segment = segments[i];
+            if (segment == null || !segment.IsActive || segment.IsMainPath)
+                continue;
+
+            float distanceSqr = segment.WorldBounds.SqrDistance(playerTransform.position);
+            if (distanceSqr <= recycleDistanceSqr)
+                continue;
+
+            if (TryRecycleSegment(segment.Index))
+                recycledCount++;
+        }
+    }
+
+    private bool TryRecycleSegment(int segmentIndex)
+    {
+        if (segmentIndex <= 0 || segmentIndex >= segments.Count)
+            return false;
+
+        SegmentData segment = segments[segmentIndex];
+        if (segment == null || !segment.IsActive)
+            return false;
+
+        Bounds protectedBounds = segment.WorldBounds;
+        protectedBounds.Expand(new Vector3(0.2f, 1.2f, 0.2f));
+        if (protectedBounds.Contains(playerTransform.position))
+            return false;
+
+        if (!IsSegmentHidden(segment))
+            return false;
+
+        HashSet<BoundaryKey> affectedBoundaries = new HashSet<BoundaryKey>();
+        List<Frontier> recycleFrontiers = new List<Frontier>();
+
+        for (int i = pendingFrontiers.Count - 1; i >= 0; i--)
+        {
+            Frontier pending = pendingFrontiers[i].Frontier;
+            if (segment.Cells.Contains(pending.SourceCell))
+                pendingFrontiers.RemoveAt(i);
+        }
+
+        for (int i = 0; i < segment.Cells.Count; i++)
+        {
+            GridCoord cell = segment.Cells[i];
+            for (int directionIndex = 0; directionIndex < AllDirections.Length; directionIndex++)
+            {
+                Direction direction = AllDirections[directionIndex];
+                BoundaryKey boundary = GetCanonicalBoundary(cell, direction);
+                affectedBoundaries.Add(boundary);
+
+                GridCoord neighbor = cell.Step(direction);
+                if (!cells.TryGetValue(neighbor, out CellData neighborCell) || neighborCell.SegmentIndex == segmentIndex)
+                    continue;
+
+                Frontier recycleFrontier = new Frontier(neighbor, Opposite(direction));
+                bool exists = false;
+                for (int frontierIndex = 0; frontierIndex < recycleFrontiers.Count; frontierIndex++)
+                {
+                    if (FrontierEquals(recycleFrontiers[frontierIndex], recycleFrontier))
+                    {
+                        exists = true;
+                        break;
+                    }
+                }
+
+                if (!exists)
+                    recycleFrontiers.Add(recycleFrontier);
+            }
+        }
+
+        for (int i = 0; i < segment.Cells.Count; i++)
+            cells.Remove(segment.Cells[i]);
+
+        for (int i = 0; i < segment.Cells.Count; i++)
+        {
+            GridCoord cell = segment.Cells[i];
+            for (int directionIndex = 0; directionIndex < AllDirections.Length; directionIndex++)
+            {
+                BoundaryKey boundary = GetCanonicalBoundary(cell, AllDirections[directionIndex]);
+                bool hasA = cells.ContainsKey(boundary.Cell);
+                bool hasB = cells.ContainsKey(boundary.Cell.Step(boundary.Side));
+                if (!hasA && !hasB)
+                {
+                    openBoundaries.Remove(boundary);
+                    doorBoundaries.Remove(boundary);
+                }
+                else if (!(hasA && hasB))
+                {
+                    openBoundaries.Remove(boundary);
+                }
+            }
+        }
+
+        foreach (Frontier frontier in recycleFrontiers)
+        {
+            BoundaryKey boundary = GetCanonicalBoundary(frontier.SourceCell, frontier.Direction);
+            openBoundaries.Remove(boundary);
+            doorBoundaries.Add(boundary);
+            EnqueueFrontier(frontier, MaxBranchDepth);
+            affectedBoundaries.Add(boundary);
+        }
+
+        if (segment.Root != null)
+            Destroy(segment.Root.gameObject);
+
+        if (!segment.IsMainPath && branchSegmentCount > 0)
+            branchSegmentCount--;
+
+        segment.IsActive = false;
+        segment.Root = null;
+        segment.Cells.Clear();
+
+        foreach (BoundaryKey boundary in affectedBoundaries)
+            UpdateBoundary(boundary, ResolveBoundaryVisual(boundary));
+
+        return true;
+    }
+
+    private bool IsSegmentHidden(SegmentData segment)
+    {
+        if (playerCamera == null || segment == null)
+            return true;
+
+        for (int i = 0; i < segment.Cells.Count; i++)
+        {
+            Vector3[] samplePoints = GetCellVisibilitySamplePoints(segment.Cells[i]);
+            for (int sampleIndex = 0; sampleIndex < samplePoints.Length; sampleIndex++)
+            {
+                if (IsWorldPointVisible(samplePoints[sampleIndex]))
+                    return false;
+            }
+        }
+
+        return true;
+    }
+
+    private void PrunePendingFrontiers()
+    {
+        for (int i = pendingFrontiers.Count - 1; i >= 0; i--)
+        {
+            Frontier frontier = pendingFrontiers[i].Frontier;
+            if (!cells.ContainsKey(frontier.SourceCell))
+                pendingFrontiers.RemoveAt(i);
+        }
+    }
+
     private static int CompareHitsByDistance(RaycastHit left, RaycastHit right)
     {
         return left.distance.CompareTo(right.distance);
+    }
+
+    private bool CanGenerateBehindDoor(BoundaryKey boundary)
+    {
+        return boundaryVisuals.TryGetValue(boundary, out BoundaryVisualType type) &&
+               type == BoundaryVisualType.DoorWall &&
+               IsExteriorBoundary(boundary);
+    }
+
+    private bool IsExteriorBoundary(BoundaryKey boundary)
+    {
+        bool hasA = cells.ContainsKey(boundary.Cell);
+        bool hasB = cells.ContainsKey(boundary.Cell.Step(boundary.Side));
+        return hasA ^ hasB;
+    }
+
+    private bool IsSymmetricRoomWindow(CellData cell, SegmentData segment, Direction side, Direction lowSide, Direction highSide)
+    {
+        if (side != lowSide && side != highSide)
+            return false;
+
+        GridCoord oppositeCell;
+        if (side == lowSide)
+        {
+            if ((lowSide == Direction.West && cell.Coord.X != segment.MinX) ||
+                (lowSide == Direction.South && cell.Coord.Z != segment.MinZ))
+            {
+                return false;
+            }
+
+            oppositeCell = lowSide == Direction.West
+                ? new GridCoord(segment.MaxX, cell.Coord.Z)
+                : new GridCoord(cell.Coord.X, segment.MaxZ);
+        }
+        else
+        {
+            if ((highSide == Direction.East && cell.Coord.X != segment.MaxX) ||
+                (highSide == Direction.North && cell.Coord.Z != segment.MaxZ))
+            {
+                return false;
+            }
+
+            oppositeCell = highSide == Direction.East
+                ? new GridCoord(segment.MinX, cell.Coord.Z)
+                : new GridCoord(cell.Coord.X, segment.MinZ);
+        }
+
+        if (!cells.TryGetValue(oppositeCell, out CellData opposite) || opposite.SegmentIndex != cell.SegmentIndex)
+            return false;
+
+        BoundaryKey oppositeBoundary = GetCanonicalBoundary(oppositeCell, Opposite(side));
+        return IsWindowEligibleBoundary(oppositeBoundary);
+    }
+
+    private bool IsSymmetricHallWindow(CellData cell, Direction side)
+    {
+        Direction left = TurnLeft(cell.PrimaryDirection);
+        Direction right = TurnRight(cell.PrimaryDirection);
+        if (side != left && side != right)
+            return false;
+
+        BoundaryKey oppositeBoundary = GetCanonicalBoundary(cell.Coord, side == left ? right : left);
+        return IsWindowEligibleBoundary(oppositeBoundary);
+    }
+
+    private bool IsWindowEligibleBoundary(BoundaryKey boundary)
+    {
+        return IsExteriorBoundary(boundary) && !doorBoundaries.Contains(boundary);
     }
 
     private Bounds GetBoundaryBounds(BoundaryKey boundary)
@@ -1162,28 +1450,6 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         return new Vector3(snappedX, snappedY, snappedZ);
     }
 
-    private Bounds GetCellBounds(CellSpec spec)
-    {
-        Vector3 center = GetCellWorldPosition(spec.Coord);
-        if (spec.Kind == CellKind.StairBase)
-            return new Bounds(center + new Vector3(0f, FloorHeight * 0.5f, 0f), new Vector3(CellSize, FloorHeight * 2f, CellSize));
-
-        return new Bounds(center + new Vector3(0f, FloorHeight * 0.5f, 0f), new Vector3(CellSize, FloorHeight, CellSize));
-    }
-
-    private GridCoord OffsetFromEntrance(GridCoord entranceCell, Direction forward, int forwardSteps, int lateralSteps)
-    {
-        GridCoord coord = entranceCell;
-        Direction lateralDirection = lateralSteps >= 0 ? TurnRight(forward) : TurnLeft(forward);
-        for (int i = 0; i < forwardSteps; i++)
-            coord = coord.Step(forward);
-
-        for (int i = 0; i < Mathf.Abs(lateralSteps); i++)
-            coord = coord.Step(lateralDirection);
-
-        return coord;
-    }
-
     private Frontier CreateRoomExit(
         GridCoord entranceCell,
         Direction entryDirection,
@@ -1211,19 +1477,75 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         return new Frontier(selectedExitCell, exitDirection);
     }
 
-    private Direction[] BuildRoomExitChoices(Direction entryDirection)
+    private SegmentType GetSegmentTypeAt(GridCoord cell)
     {
-        return new[]
-        {
-            entryDirection,
-            TurnLeft(entryDirection),
-            TurnRight(entryDirection)
-        };
+        if (!cells.TryGetValue(cell, out CellData cellData))
+            return SegmentType.Hallway;
+
+        return segments[cellData.SegmentIndex].Type;
+    }
+
+    private WindowPattern DetermineWindowPattern(SegmentType type)
+    {
+        if (!UseExteriorWindows)
+            return WindowPattern.None;
+
+        if (type == SegmentType.Room && random.NextDouble() < RoomWindowChance)
+            return random.Next(2) == 0 ? WindowPattern.RoomEastWest : WindowPattern.RoomNorthSouth;
+
+        if (type == SegmentType.Hallway && random.NextDouble() < HallWindowChance)
+            return WindowPattern.HallAcross;
+
+        return WindowPattern.None;
+    }
+
+    private int RollRoomDimension()
+    {
+        double value = random.NextDouble();
+        if (value < 0.55d)
+            return 2;
+
+        if (value < 0.9d)
+            return 3;
+
+        return 4;
+    }
+
+    private int RollHallLength()
+    {
+        double value = random.NextDouble();
+        if (value < 0.2d)
+            return 2;
+
+        if (value < 0.75d)
+            return 3;
+
+        return 4;
+    }
+
+    private GridCoord OffsetFromEntrance(GridCoord entranceCell, Direction forward, int forwardSteps, int lateralSteps)
+    {
+        GridCoord coord = entranceCell;
+        Direction lateralDirection = lateralSteps >= 0 ? TurnRight(forward) : TurnLeft(forward);
+
+        for (int i = 0; i < forwardSteps; i++)
+            coord = coord.Step(forward);
+
+        for (int i = 0; i < Mathf.Abs(lateralSteps); i++)
+            coord = coord.Step(lateralDirection);
+
+        return coord;
+    }
+
+    private Bounds GetCellBounds(GridCoord coord)
+    {
+        Vector3 center = GetCellWorldPosition(coord) + new Vector3(0f, FloorHeight * 0.5f, 0f);
+        return new Bounds(center, new Vector3(CellSize, FloorHeight, CellSize));
     }
 
     private Vector3 GetCellWorldPosition(GridCoord coord)
     {
-        return worldGridOrigin + new Vector3(coord.X * CellSize, coord.Level * FloorHeight, coord.Z * CellSize);
+        return worldGridOrigin + new Vector3(coord.X * CellSize, 0f, coord.Z * CellSize);
     }
 
     private Vector3 GetBoundaryWorldPosition(GridCoord cell, Direction side)
@@ -1307,6 +1629,11 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         return (Direction)(((int)direction + 2) % 4);
     }
 
+    private static bool FrontierEquals(Frontier left, Frontier right)
+    {
+        return left.SourceCell.Equals(right.SourceCell) && left.Direction == right.Direction;
+    }
+
     private void Shuffle<T>(IList<T> list)
     {
         for (int i = list.Count - 1; i > 0; i--)
@@ -1339,16 +1666,9 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
 
     private enum SegmentType
     {
+        Entry,
         Room,
-        Hallway,
-        Staircase
-    }
-
-    private enum CellKind
-    {
-        Standard,
-        StairBase,
-        StairLanding
+        Hallway
     }
 
     private enum BoundaryVisualType
@@ -1357,6 +1677,87 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         Wall,
         WindowWall,
         DoorWall
+    }
+
+    private enum HiddenBuildResult
+    {
+        NoBlueprint,
+        VisibleOnly,
+        Success
+    }
+
+    private enum WindowPattern
+    {
+        None,
+        RoomEastWest,
+        RoomNorthSouth,
+        HallAcross
+    }
+
+    private readonly struct GridCoord : IEquatable<GridCoord>, IComparable<GridCoord>
+    {
+        public static readonly GridCoord Zero = new GridCoord(0, 0);
+
+        public GridCoord(int x, int z)
+        {
+            X = x;
+            Z = z;
+        }
+
+        public int X { get; }
+
+        public int Z { get; }
+
+        public GridCoord Step(Direction direction)
+        {
+            switch (direction)
+            {
+                case Direction.North:
+                    return new GridCoord(X, Z + 1);
+                case Direction.East:
+                    return new GridCoord(X + 1, Z);
+                case Direction.South:
+                    return new GridCoord(X, Z - 1);
+                default:
+                    return new GridCoord(X - 1, Z);
+            }
+        }
+
+        public int CompareTo(GridCoord other)
+        {
+            if (Z != other.Z)
+                return Z.CompareTo(other.Z);
+
+            return X.CompareTo(other.X);
+        }
+
+        public bool Equals(GridCoord other)
+        {
+            return X == other.X && Z == other.Z;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is GridCoord other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            return (X * 397) ^ Z;
+        }
+    }
+
+    private readonly struct CellSpec
+    {
+        public CellSpec(GridCoord coord, Direction primaryDirection)
+        {
+            Coord = coord;
+            PrimaryDirection = primaryDirection;
+        }
+
+        public GridCoord Coord { get; }
+
+        public Direction PrimaryDirection { get; }
     }
 
     private readonly struct Frontier
@@ -1370,6 +1771,19 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         public GridCoord SourceCell { get; }
 
         public Direction Direction { get; }
+    }
+
+    private readonly struct PendingFrontier
+    {
+        public PendingFrontier(Frontier frontier, int remainingDepth)
+        {
+            Frontier = frontier;
+            RemainingDepth = remainingDepth;
+        }
+
+        public Frontier Frontier { get; }
+
+        public int RemainingDepth { get; }
     }
 
     private readonly struct BoundaryKey : IEquatable<BoundaryKey>
@@ -1400,113 +1814,24 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         }
     }
 
-    private readonly struct GridCoord : IEquatable<GridCoord>, IComparable<GridCoord>
-    {
-        public static readonly GridCoord Zero = new GridCoord(0, 0, 0);
-
-        public GridCoord(int x, int level, int z)
-        {
-            X = x;
-            Level = level;
-            Z = z;
-        }
-
-        public int X { get; }
-
-        public int Level { get; }
-
-        public int Z { get; }
-
-        public GridCoord Step(Direction direction)
-        {
-            switch (direction)
-            {
-                case Direction.North:
-                    return new GridCoord(X, Level, Z + 1);
-                case Direction.East:
-                    return new GridCoord(X + 1, Level, Z);
-                case Direction.South:
-                    return new GridCoord(X, Level, Z - 1);
-                default:
-                    return new GridCoord(X - 1, Level, Z);
-            }
-        }
-
-        public GridCoord WithLevel(int newLevel)
-        {
-            return new GridCoord(X, newLevel, Z);
-        }
-
-        public int CompareTo(GridCoord other)
-        {
-            if (Level != other.Level)
-                return Level.CompareTo(other.Level);
-
-            if (Z != other.Z)
-                return Z.CompareTo(other.Z);
-
-            return X.CompareTo(other.X);
-        }
-
-        public bool Equals(GridCoord other)
-        {
-            return X == other.X && Level == other.Level && Z == other.Z;
-        }
-
-        public override bool Equals(object obj)
-        {
-            return obj is GridCoord other && Equals(other);
-        }
-
-        public override int GetHashCode()
-        {
-            int hash = X;
-            hash = (hash * 397) ^ Level;
-            hash = (hash * 397) ^ Z;
-            return hash;
-        }
-    }
-
-    private readonly struct CellSpec
-    {
-        public CellSpec(GridCoord coord, CellKind kind, Direction primaryDirection)
-        {
-            Coord = coord;
-            Kind = kind;
-            PrimaryDirection = primaryDirection;
-        }
-
-        public GridCoord Coord { get; }
-
-        public CellKind Kind { get; }
-
-        public Direction PrimaryDirection { get; }
-    }
-
     private sealed class SegmentBlueprint
     {
         private readonly HashSet<GridCoord> cellLookup = new HashSet<GridCoord>();
         private readonly List<CellSpec> cells = new List<CellSpec>();
-        private readonly List<BoundaryKey> openBoundaries = new List<BoundaryKey>();
         private readonly List<Frontier> branchFrontiers = new List<Frontier>();
 
-        public SegmentType Type { get; set; }
+        public SegmentBlueprint(SegmentType type)
+        {
+            Type = type;
+        }
+
+        public SegmentType Type { get; }
 
         public Frontier ExitFrontier { get; set; }
-
-        public GridCoord EntranceDoorCell { get; set; }
-
-        public Direction EntranceDoorSide { get; set; }
-
-        public bool UsesOpenEntrance { get; set; }
 
         public IReadOnlyList<CellSpec> Cells => cells;
 
         public int CellCount => cells.Count;
-
-        public IReadOnlyList<BoundaryKey> OpenBoundaries => openBoundaries;
-
-        public int OpenBoundaryCount => openBoundaries.Count;
 
         public IReadOnlyList<Frontier> BranchFrontiers => branchFrontiers;
 
@@ -1523,67 +1848,60 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
             return cellLookup.Contains(coord);
         }
 
-        public void AddOpenBoundary(BoundaryKey boundary)
+        public void ClearBranchFrontiers()
         {
-            if (!openBoundaries.Contains(boundary))
-                openBoundaries.Add(boundary);
+            branchFrontiers.Clear();
         }
 
         public void AddBranchFrontier(Frontier frontier)
         {
             for (int i = 0; i < branchFrontiers.Count; i++)
             {
-                if (branchFrontiers[i].SourceCell.Equals(frontier.SourceCell) &&
-                    branchFrontiers[i].Direction == frontier.Direction)
-                {
+                if (FrontierEquals(branchFrontiers[i], frontier))
                     return;
-                }
             }
 
             branchFrontiers.Add(frontier);
         }
     }
 
-    private readonly struct PendingBranchFrontier
-    {
-        public PendingBranchFrontier(Frontier frontier, int remainingDepth)
-        {
-            Frontier = frontier;
-            RemainingDepth = remainingDepth;
-        }
-
-        public Frontier Frontier { get; }
-
-        public int RemainingDepth { get; }
-    }
-
     private sealed class SegmentData
     {
-        public int Index;
-        public SegmentType Type;
-        public Frontier ExitFrontier;
-        public Bounds WorldBounds;
-        public Transform Root;
-        public readonly List<GridCoord> Cells = new List<GridCoord>();
+        public int Index { get; set; }
+
+        public SegmentType Type { get; set; }
+
+        public bool IsActive { get; set; }
+
+        public bool IsMainPath { get; set; }
+
+        public Transform Root { get; set; }
+
+        public Bounds WorldBounds { get; set; }
+
+        public Frontier ExitFrontier { get; set; }
+
+        public int MinX { get; set; }
+
+        public int MaxX { get; set; }
+
+        public int MinZ { get; set; }
+
+        public int MaxZ { get; set; }
+
+        public WindowPattern WindowPattern { get; set; }
+
+        public List<GridCoord> Cells { get; } = new List<GridCoord>();
     }
 
     private sealed class CellData
     {
-        public GridCoord Coord;
-        public CellKind Kind;
-        public Direction PrimaryDirection;
-        public GameObject Root;
-        public int SegmentIndex;
+        public GridCoord Coord { get; set; }
 
-        public bool SuppressesBoundary(Direction side)
-        {
-            if (Kind == CellKind.StairBase)
-            {
-                return side == PrimaryDirection ||
-                       side == ProceduralHouseGenerator.Opposite(PrimaryDirection);
-            }
+        public GameObject Root { get; set; }
 
-            return Kind == CellKind.StairLanding && side == ProceduralHouseGenerator.Opposite(PrimaryDirection);
-        }
+        public int SegmentIndex { get; set; }
+
+        public Direction PrimaryDirection { get; set; }
     }
 }
