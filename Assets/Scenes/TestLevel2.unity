@@ -18665,6 +18665,14 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6945758008065654410, guid: 80d17bfada2b30e4998bab666cae7813, type: 3}
+      propertyPath: hoverMessage
+      value: '[E] to light lamp.'
+      objectReference: {fileID: 0}
+    - target: {fileID: 6945758008065654410, guid: 80d17bfada2b30e4998bab666cae7813, type: 3}
+      propertyPath: hoverMessageFont
+      value: 
+      objectReference: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
+    - target: {fileID: 6945758008065654410, guid: 80d17bfada2b30e4998bab666cae7813, type: 3}
       propertyPath: lightLocalPosition.y
       value: 0.4
       objectReference: {fileID: 0}
@@ -18672,6 +18680,14 @@ PrefabInstance:
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
       objectReference: {fileID: 2100000, guid: 740d11922c0bec540bcfa99361eebe6c, type: 2}
+    - target: {fileID: 8513083708993717045, guid: 80d17bfada2b30e4998bab666cae7813, type: 3}
+      propertyPath: hoverMessage
+      value: '[E] pick up lamp.'
+      objectReference: {fileID: 0}
+    - target: {fileID: 8513083708993717045, guid: 80d17bfada2b30e4998bab666cae7813, type: 3}
+      propertyPath: hoverMessageFont
+      value: 
+      objectReference: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
     - target: {fileID: 8881827972802982180, guid: 80d17bfada2b30e4998bab666cae7813, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
