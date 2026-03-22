@@ -20,10 +20,10 @@ RenderSettings:
   m_FogDensity: 0.01
   m_LinearFogStart: 0
   m_LinearFogEnd: 300
-  m_AmbientSkyColor: {r: 0.120238535, g: 0.12418419, b: 0.13207549, a: 1}
-  m_AmbientEquatorColor: {r: 0.114, g: 0.125, b: 0.133, a: 1}
-  m_AmbientGroundColor: {r: 0.047, g: 0.043, b: 0.035, a: 1}
-  m_AmbientIntensity: 1
+  m_AmbientSkyColor: {r: 0.08, g: 0.088, b: 0.108, a: 1}
+  m_AmbientEquatorColor: {r: 0.06, g: 0.065, b: 0.078, a: 1}
+  m_AmbientGroundColor: {r: 0.028, g: 0.027, b: 0.032, a: 1}
+  m_AmbientIntensity: 0.72
   m_AmbientMode: 3
   m_SubtractiveShadowColor: {r: 0.42, g: 0.478, b: 0.627, a: 1}
   m_SkyboxMaterial: {fileID: 10304, guid: 0000000000000000f000000000000000, type: 0}
@@ -35,9 +35,9 @@ RenderSettings:
   m_DefaultReflectionMode: 0
   m_DefaultReflectionResolution: 128
   m_ReflectionBounces: 1
-  m_ReflectionIntensity: 1
+  m_ReflectionIntensity: 0.5
   m_CustomReflection: {fileID: 0}
-  m_Sun: {fileID: 0}
+  m_Sun: {fileID: 2109876541}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -12633,6 +12633,14 @@ PrefabInstance:
       propertyPath: m_Name
       value: (Prb)DeskLight
       objectReference: {fileID: 0}
+    - target: {fileID: 5951373164338049982, guid: e0a309163f5d1ef4e81367371dba0804, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4934079345739507868, guid: e0a309163f5d1ef4e81367371dba0804, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 6475145956812204292, guid: e0a309163f5d1ef4e81367371dba0804, type: 3}
       propertyPath: m_LocalPosition.x
       value: 5.9542875
@@ -12676,13 +12684,89 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 5951373164338049982, guid: e0a309163f5d1ef4e81367371dba0804, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1689618842}
+    - targetCorrespondingSourceObject: {fileID: 5951373164338049982, guid: e0a309163f5d1ef4e81367371dba0804, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1689618843}
+    - targetCorrespondingSourceObject: {fileID: 5951373164338049982, guid: e0a309163f5d1ef4e81367371dba0804, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1689618844}
   m_SourcePrefab: {fileID: 100100000, guid: e0a309163f5d1ef4e81367371dba0804, type: 3}
 --- !u!4 &1689618840 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 6475145956812204292, guid: e0a309163f5d1ef4e81367371dba0804, type: 3}
   m_PrefabInstance: {fileID: 1689618839}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1689618841 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 5951373164338049982, guid: e0a309163f5d1ef4e81367371dba0804, type: 3}
+  m_PrefabInstance: {fileID: 1689618839}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1689618842
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1689618841}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1b7d8e94c4a7462d8e267b7b4d6130af, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::InteractableOutline
+  targetRenderers: []
+--- !u!114 &1689618843
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1689618841}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4d6d3c7a7d604c7eb55d4e0c4f7c8b51, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WarmLightInteractable
+  outline: {fileID: 1689618842}
+  targetLight: {fileID: 0}
+  hoverMessage: Light lamp
+  hoverMessageFont: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
+  hoverMessageFontSize: 18
+  hoverMessageColor: {r: 1, g: 1, b: 1, a: 0.95}
+  lightLocalPosition: {x: 0, y: 0.7, z: 0}
+  lightColor: {r: 1, g: 0.73, b: 0.48, a: 1}
+  lightIntensity: 1.6
+  lightRange: 4.5
+  castShadows: 1
+  requireBedInteraction: 1
+  enablePickupAfterLighting: 1
+  pickupInteractable: {fileID: 1689618844}
+--- !u!114 &1689618844
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1689618841}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4d1dc8dd944c4346ac253d8af918e36f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PickupInteractable
+  outline: {fileID: 1689618842}
+  hoverMessage: Pick up lamp
+  hoverMessageFont: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
+  hoverMessageFontSize: 18
+  hoverMessageColor: {r: 1, g: 1, b: 1, a: 0.95}
+  heldEulerAngles: {x: 12, y: -30, z: 0}
+  heldPositionOffset: {x: 0, y: 0, z: 0}
+  heldMaxSize: 0.45
+  disableShadowsWhileHeld: 1
+  placementId: 
+  DisappearObject: {fileID: 0}
 --- !u!1001 &1690716135
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -15612,6 +15696,12 @@ MonoBehaviour:
   scaryChimesPrefab: {fileID: 0}
   frontDoorObject: {fileID: 251189297}
   frontDoorWallObject: {fileID: 909741336}
+  darkenEnvironmentOnInteract: 1
+  targetAmbientSkyColor: {r: 0.032, g: 0.035, b: 0.044, a: 1}
+  targetAmbientEquatorColor: {r: 0.024, g: 0.027, b: 0.034, a: 1}
+  targetAmbientGroundColor: {r: 0.007, g: 0.006, b: 0.008, a: 1}
+  targetAmbientIntensity: 0.28
+  targetReflectionIntensity: 0.1
   hoverMessage: Sleep
   postInteractMessage: My lamp is in the attic
   postInteractMessageDuration: 4.5
@@ -15809,6 +15899,103 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 4332682439126214569, guid: c7049498fdae1fa4992800082e31571c, type: 3}
   m_PrefabInstance: {fileID: 1400573127}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &2109876540
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2109876542}
+  - component: {fileID: 2109876541}
+  m_Layer: 0
+  m_Name: Moon Light
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!108 &2109876541
+Light:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2109876540}
+  m_Enabled: 1
+  serializedVersion: 12
+  m_Type: 1
+  m_Color: {r: 0.72, g: 0.79, b: 0.94, a: 1}
+  m_Intensity: 0.3
+  m_Range: 10
+  m_SpotAngle: 30
+  m_InnerSpotAngle: 21.80208
+  m_CookieSize2D: {x: 10, y: 10}
+  m_Shadows:
+    m_Type: 2
+    m_Resolution: -1
+    m_CustomResolution: -1
+    m_Strength: 0.8
+    m_Bias: 0.05
+    m_NormalBias: 0.4
+    m_NearPlane: 0.2
+    m_CullingMatrixOverride:
+      e00: 1
+      e01: 0
+      e02: 0
+      e03: 0
+      e10: 0
+      e11: 1
+      e12: 0
+      e13: 0
+      e20: 0
+      e21: 0
+      e22: 1
+      e23: 0
+      e30: 0
+      e31: 0
+      e32: 0
+      e33: 1
+    m_UseCullingMatrixOverride: 0
+  m_Cookie: {fileID: 0}
+  m_DrawHalo: 0
+  m_Flare: {fileID: 0}
+  m_RenderMode: 0
+  m_CullingMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_RenderingLayerMask: 1
+  m_Lightmapping: 4
+  m_LightShadowCasterMode: 0
+  m_AreaSize: {x: 1, y: 1}
+  m_BounceIntensity: 0.25
+  m_ColorTemperature: 9000
+  m_UseColorTemperature: 0
+  m_BoundingSphereOverride: {x: 0, y: 0, z: 0, w: 0}
+  m_UseBoundingSphereOverride: 0
+  m_UseViewFrustumForShadowCasterCull: 1
+  m_ForceVisible: 0
+  m_ShadowRadius: 0
+  m_ShadowAngle: 0
+  m_LightUnit: 1
+  m_LuxAtDistance: 1
+  m_EnableSpotReflector: 1
+--- !u!4 &2109876542
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2109876540}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.40821788, y: -0.23456968, z: 0.10938163, w: 0.8754261}
+  m_LocalPosition: {x: 0, y: 3, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 50, y: -30, z: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -15822,3 +16009,4 @@ SceneRoots:
   - {fileID: 773004260}
   - {fileID: 868067623}
   - {fileID: 889660908}
+  - {fileID: 2109876542}

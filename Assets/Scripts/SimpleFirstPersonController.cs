@@ -1,5 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 using UnityEngine.UI;
 
 [RequireComponent(typeof(CharacterController))]
@@ -12,6 +14,9 @@ public class SimpleFirstPersonController : MonoBehaviour
     private const string PlayerMessageName = "Player Message";
     private const int DefaultHoverPromptFontSize = 18;
     private const int DefaultPlayerMessageFontSize = 22;
+    private const float HeldLampVisibilityMultiplier = 2f;
+    private const float MinimumVisibilityMultiplier = 0.01f;
+    private const float VisibilityDecayDuration = 60f;
     private static readonly Color DefaultHoverPromptColor = new Color(1f, 1f, 1f, 0.95f);
     private static readonly Color DefaultPlayerMessageColor = new Color(1f, 1f, 1f, 0.96f);
 
@@ -67,7 +72,17 @@ public class SimpleFirstPersonController : MonoBehaviour
     private float verticalVelocity;
     private float pitch;
     private float playerMessageHideTime;
+    private float defaultFarClipPlane = 1000f;
+    private float limitedVisibilityDistance;
+    private float limitedVisibilityFogStartDistance;
+    private float limitedVisibilityStartTime;
+    private float limitedVisibilityVignetteIntensity;
+    private float limitedVisibilityVignetteSmoothness;
+    private bool hasLimitedVisibility;
+    private bool lastLampHeldState;
     private string activePlayerMessage = string.Empty;
+    private Color limitedVisibilityFogColor;
+    private HeldItemSocket heldItemSocket;
 
     private void Awake()
     {
@@ -76,7 +91,10 @@ public class SimpleFirstPersonController : MonoBehaviour
             playerCamera = GetComponentInChildren<Camera>();
 
         if (playerCamera != null)
+        {
             playerCamera.nearClipPlane = Mathf.Max(0.01f, cameraNearClipPlane);
+            defaultFarClipPlane = Mathf.Max(playerCamera.nearClipPlane + 0.01f, playerCamera.farClipPlane);
+        }
         playerManagerScript = GetComponent<PlayerManager>();    
         EnsureCrosshair();
         ApplyCrosshairStyle();
@@ -97,6 +115,7 @@ public class SimpleFirstPersonController : MonoBehaviour
     {
         Look();
         UpdateInteraction();
+        UpdateLimitedVisibility();
         UpdatePlayerMessage();
         Move();
     }
@@ -132,6 +151,92 @@ public class SimpleFirstPersonController : MonoBehaviour
         activePlayerMessage = string.IsNullOrWhiteSpace(message) ? string.Empty : message.Trim();
         playerMessageHideTime = Time.unscaledTime + (duration > 0f ? duration : defaultPlayerMessageDuration);
         RefreshPlayerMessage();
+    }
+
+    public void ApplyVisibilityLimit(
+        float maxVisibleDistance,
+        float fogStartDistance,
+        Color fogColor,
+        float vignetteIntensity = 0f,
+        float vignetteSmoothness = 0.85f)
+    {
+        if (playerCamera == null)
+            playerCamera = GetComponentInChildren<Camera>();
+
+        float nearClip = Mathf.Max(0.01f, cameraNearClipPlane);
+        limitedVisibilityDistance = Mathf.Max(nearClip + 0.01f, maxVisibleDistance);
+        limitedVisibilityFogStartDistance = Mathf.Clamp(fogStartDistance, 0f, Mathf.Max(0f, limitedVisibilityDistance - 0.01f));
+        limitedVisibilityFogColor = fogColor;
+        limitedVisibilityVignetteIntensity = vignetteIntensity;
+        limitedVisibilityVignetteSmoothness = vignetteSmoothness;
+        limitedVisibilityStartTime = Time.time;
+        hasLimitedVisibility = true;
+        lastLampHeldState = IsLampHeld();
+
+        ApplyStoredVisibilityLimit();
+    }
+
+    private void UpdateLimitedVisibility()
+    {
+        if (!hasLimitedVisibility)
+            return;
+
+        lastLampHeldState = IsLampHeld();
+        ApplyStoredVisibilityLimit();
+    }
+
+    private void ApplyStoredVisibilityLimit()
+    {
+        float nearClip = Mathf.Max(0.01f, cameraNearClipPlane);
+        float decayMultiplier = GetVisibilityDecayMultiplier();
+        float visibilityMultiplier = (lastLampHeldState ? HeldLampVisibilityMultiplier : 1f) * decayMultiplier;
+        float maxVisibleDistance = Mathf.Max(nearClip + 0.01f, limitedVisibilityDistance * visibilityMultiplier);
+        float fogStartDistance = Mathf.Clamp(
+            limitedVisibilityFogStartDistance * visibilityMultiplier,
+            0f,
+            Mathf.Max(0f, maxVisibleDistance - 0.01f));
+
+        if (playerCamera != null)
+        {
+            playerCamera.nearClipPlane = nearClip;
+            // Keep the original far clip so the darkness comes from fog, not from a flat cut plane.
+            playerCamera.farClipPlane = Mathf.Max(defaultFarClipPlane, maxVisibleDistance);
+        }
+
+        RenderSettings.fog = true;
+        RenderSettings.fogMode = FogMode.Linear;
+        RenderSettings.fogColor = limitedVisibilityFogColor;
+        RenderSettings.fogStartDistance = fogStartDistance;
+        RenderSettings.fogEndDistance = maxVisibleDistance;
+
+        ApplyVisibilityVignette(
+            limitedVisibilityFogColor,
+            limitedVisibilityVignetteIntensity,
+            limitedVisibilityVignetteSmoothness);
+    }
+
+    private float GetVisibilityDecayMultiplier()
+    {
+        if (!hasLimitedVisibility)
+            return 1f;
+
+        float elapsed = Mathf.Max(0f, Time.time - limitedVisibilityStartTime);
+        float progress = Mathf.Clamp01(elapsed / VisibilityDecayDuration);
+        return Mathf.Lerp(1f, MinimumVisibilityMultiplier, progress);
+    }
+
+    private bool IsLampHeld()
+    {
+        if (heldItemSocket == null)
+            heldItemSocket = GetComponent<HeldItemSocket>();
+
+        PickupInteractable heldItem = heldItemSocket != null ? heldItemSocket.HeldItem : null;
+        if (heldItem == null)
+            return false;
+
+        return heldItem.GetComponent<WarmLightInteractable>() != null ||
+               heldItem.GetComponentInParent<WarmLightInteractable>() != null ||
+               heldItem.GetComponentInChildren<WarmLightInteractable>(true) != null;
     }
 
     private void Look()
@@ -219,6 +324,9 @@ public class SimpleFirstPersonController : MonoBehaviour
 
         for (int i = 0; i < behaviours.Length; i++)
         {
+            if (behaviours[i] == null || !behaviours[i].isActiveAndEnabled)
+                continue;
+
             if (behaviours[i] is IInteractable interactable)
                 return interactable;
         }
@@ -616,5 +724,44 @@ public class SimpleFirstPersonController : MonoBehaviour
             defaultHoverPromptFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
         return defaultHoverPromptFont;
+    }
+
+    private void ApplyVisibilityVignette(Color fogColor, float intensity, float smoothness)
+    {
+        if (intensity <= 0f)
+            return;
+
+        Volume targetVolume = ResolveGlobalVolume();
+        if (targetVolume == null)
+            return;
+
+        VolumeProfile profile = targetVolume.profile;
+        if (profile == null)
+            return;
+
+        if (!profile.TryGet(out Vignette vignette))
+            vignette = profile.Add<Vignette>(true);
+
+        if (vignette == null)
+            return;
+
+        vignette.active = true;
+        vignette.color.Override(fogColor);
+        vignette.intensity.Override(Mathf.Clamp01(intensity));
+        vignette.smoothness.Override(Mathf.Clamp(smoothness, 0.01f, 1f));
+        vignette.rounded.Override(true);
+    }
+
+    private static Volume ResolveGlobalVolume()
+    {
+        Volume[] volumes = FindObjectsOfType<Volume>(true);
+        for (int i = 0; i < volumes.Length; i++)
+        {
+            Volume volume = volumes[i];
+            if (volume != null && volume.isGlobal)
+                return volume;
+        }
+
+        return null;
     }
 }
