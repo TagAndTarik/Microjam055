@@ -27,13 +27,18 @@ Material:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
+    - _OverlayTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
     - _BrightnessGain: 1.08
-    - _ColorOffset: 0.05
-    - _Intensity: 0.19
+    - _ColorOffset: 0.002
+    - _Intensity: 0
+    - _OverlayEnabled: 1
     - _RetroPixelSize: 4
-    - _ScanlineStrength: 0.04
+    - _ScanlineStrength: 0
     m_Colors: []
   m_BuildTextureStacks: []
   m_AllowLocking: 1

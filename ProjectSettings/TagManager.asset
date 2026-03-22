@@ -8,6 +8,8 @@ TagManager:
   - InsideBox
   - Wacky
   - Dungeon
+  - SquishWallOne
+  - SquishWallTwo
   layers:
   - Default
   - TransparentFX
