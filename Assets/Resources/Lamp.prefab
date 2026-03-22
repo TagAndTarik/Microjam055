@@ -1,0 +1,182 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &2965095772696241811
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 6413602699579293979}
+  - component: {fileID: 3909176333543240076}
+  - component: {fileID: 3561556034154270392}
+  - component: {fileID: 6945758008065654410}
+  - component: {fileID: 8513083708993717045}
+  m_Layer: 0
+  m_Name: Lamp
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &6413602699579293979
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2965095772696241811}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 5.964, y: 0.78, z: 6.444}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 4884274273926021120}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!65 &3909176333543240076
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2965095772696241811}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.20977116, y: 0.17065084, z: 0.3407247}
+  m_Center: {x: -0.0072922707, y: 0.097320676, z: 0.08588803}
+--- !u!114 &3561556034154270392
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2965095772696241811}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1b7d8e94c4a7462d8e267b7b4d6130af, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::InteractableOutline
+  targetRenderers: []
+--- !u!114 &6945758008065654410
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2965095772696241811}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4d6d3c7a7d604c7eb55d4e0c4f7c8b51, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WarmLightInteractable
+  outline: {fileID: 3561556034154270392}
+  targetLight: {fileID: 0}
+  hoverMessage: Light lamp
+  hoverMessageFont: {fileID: 0}
+  hoverMessageFontSize: 18
+  hoverMessageColor: {r: 1, g: 1, b: 1, a: 0.95}
+  lightLocalPosition: {x: 0, y: 0.7, z: 0}
+  lightColor: {r: 1, g: 0.73, b: 0.48, a: 1}
+  lightIntensity: 1.6
+  lightRange: 4.5
+  castShadows: 1
+  requireBedInteraction: 1
+  enablePickupAfterLighting: 1
+  pickupInteractable: {fileID: 8513083708993717045}
+--- !u!114 &8513083708993717045
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2965095772696241811}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4d1dc8dd944c4346ac253d8af918e36f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PickupInteractable
+  outline: {fileID: 3561556034154270392}
+  hoverMessage: Pick up Lamp
+  hoverMessageFont: {fileID: 0}
+  hoverMessageFontSize: 18
+  hoverMessageColor: {r: 1, g: 1, b: 1, a: 0.95}
+  heldEulerAngles: {x: 12, y: -30, z: 0}
+  heldPositionOffset: {x: 0, y: 0, z: 0}
+  heldMaxSize: 0.45
+  disableShadowsWhileHeld: 1
+  placementId: 
+--- !u!1001 &4918727868223973355
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 6413602699579293979}
+    m_Modifications:
+    - target: {fileID: -8679921383154817045, guid: d1d07e826ae7acd4883e6a27067907ed, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: d1d07e826ae7acd4883e6a27067907ed, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: d1d07e826ae7acd4883e6a27067907ed, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: d1d07e826ae7acd4883e6a27067907ed, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: d1d07e826ae7acd4883e6a27067907ed, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: d1d07e826ae7acd4883e6a27067907ed, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: d1d07e826ae7acd4883e6a27067907ed, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: d1d07e826ae7acd4883e6a27067907ed, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: d1d07e826ae7acd4883e6a27067907ed, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: d1d07e826ae7acd4883e6a27067907ed, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: d1d07e826ae7acd4883e6a27067907ed, type: 3}
+      propertyPath: m_Name
+      value: Lamp
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: d1d07e826ae7acd4883e6a27067907ed, type: 3}
+--- !u!4 &4884274273926021120 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: d1d07e826ae7acd4883e6a27067907ed, type: 3}
+  m_PrefabInstance: {fileID: 4918727868223973355}
+  m_PrefabAsset: {fileID: 0}
