@@ -5,6 +5,7 @@ using UnityEngine.InputSystem;
 public class PlayerManager : MonoBehaviour
 {
     public Plane[] cameraPlanes { get; private set; }
+    public DungeonTiming timing;
 
     public static PlayerManager PlayerManagerInstance { get; private set; }
 
@@ -31,7 +32,11 @@ public class PlayerManager : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        
+        if (other.gameObject.CompareTag("Dungeon"))
+        {
+            other.GetComponent<DungeonTiming>().StartTimer();
+            GetComponent<SimpleFirstPersonController>().canDie = false;
+        }
     }
 
     public void MovePlayer(Vector3 position)
@@ -45,6 +50,10 @@ public class PlayerManager : MonoBehaviour
     {
         yield return new WaitForSeconds(1.0f);
         GetComponent<SimpleFirstPersonController>().enabled = true;
+        GetComponent<SimpleFirstPersonController>().canDie = true;
+        GetComponent<SimpleFirstPersonController>().t = 0;
+        GetComponent<SimpleFirstPersonController>().ResetLampBrightnessTimer();
+
     }
 
     

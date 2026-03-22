@@ -19,6 +19,7 @@ public class DoorHandleInteractable : MonoBehaviour, IInteractable
 
     private Coroutine turnRoutine;
     private Quaternion restingRotation;
+    public DungeonTiming timingScript;
 
     private void Awake()
     {
@@ -76,6 +77,10 @@ public class DoorHandleInteractable : MonoBehaviour, IInteractable
         if (turnRoutine != null)
             StopCoroutine(turnRoutine);
 
+        if(timingScript != null)
+        {
+            timingScript.StartTimer();
+        }
         turnRoutine = StartCoroutine(AnimateHandleTurn());
         doorController.Toggle(interactor);
     }

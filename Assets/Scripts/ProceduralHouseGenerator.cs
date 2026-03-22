@@ -1179,11 +1179,7 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
                 if (chairPrefabs.Count > 0 && random.NextDouble() < TableChairChance)
                     TryPlaceChairInFrontOfSurface(segment, placement.Cell, placement.WallSide, placedSurface);
 
-                Debug.Log(
-                    $"[HouseGen][Tables] placed={tables[tableIndex].name} order=[{orderSummary}] " +
-                    $"coinFlip={(usedCoinFlip ? coinFlipResult.ToString() : "fallback")} " +
-                    $"segment={segment.Index} cell=({placement.Cell.Coord.X},{placement.Cell.Coord.Z}) side={placement.WallSide}",
-                    this);
+                
                 return true;
             }
         }

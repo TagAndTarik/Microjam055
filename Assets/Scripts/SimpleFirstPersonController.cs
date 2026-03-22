@@ -1,8 +1,10 @@
 using System;
+using System.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 [Serializable]
@@ -47,7 +49,7 @@ public class SimpleFirstPersonController : MonoBehaviour
     private const int DefaultPlayerMessageFontSize = 22;
     private const float HeldLampVisibilityMultiplier = 2f;
     private const float MinimumVisibilityMultiplier = 0.01f;
-    private const float VisibilityDecayDuration = 20f;
+    private const float VisibilityDecayDuration = 35f;
     private static readonly Color DefaultHoverPromptColor = new Color(1f, 1f, 1f, 0.95f);
     private static readonly Color DefaultPlayerMessageColor = new Color(1f, 1f, 1f, 0.96f);
 
@@ -96,8 +98,11 @@ public class SimpleFirstPersonController : MonoBehaviour
     [SerializeField] private ScreenEffectSettings startSettings;
     [SerializeField] private ScreenEffectSettings maxSettings;
     [SerializeField] private float screenEffectFactor = 0.05f;
-
+    public float t = 0;
+    public float MaxTimeInDarkness = 60f;
+    public Animator imageAnime;
     private float screenWackyAlpha = 0f;
+    public bool canDie = true;
 
 
     private CharacterController controller;
@@ -123,7 +128,7 @@ public class SimpleFirstPersonController : MonoBehaviour
     private string activePlayerMessage = string.Empty;
     private Color limitedVisibilityFogColor;
     private HeldItemSocket heldItemSocket;
-    private float progress;
+    public float progress;
     private void Awake()
     {
         controller = GetComponent<CharacterController>();
@@ -226,6 +231,7 @@ public class SimpleFirstPersonController : MonoBehaviour
 
         limitedVisibilityStartTime = Time.time;
         progress = 0f;
+        t = 0;
         screenEffectSettings.CopySettings(startSettings);
         screenWackyAlpha = 0f;
         lastLampHeldState = IsLampHeld();
@@ -545,10 +551,7 @@ public class SimpleFirstPersonController : MonoBehaviour
             ? DescribeSphereCastHit(ray)
             : "disabled";
 
-        Debug.Log(
-            $"Interact debug. Direct ray: {directHitDescription}. Wide cast: {wideHitDescription}. " +
-            $"Focused interactable: {DescribeInteractable(currentInteractable)}.",
-            this);
+        
     }
 
     private string DescribeRaycastHit(Ray ray, bool appendRadiusInfo)
@@ -843,8 +846,28 @@ public class SimpleFirstPersonController : MonoBehaviour
                 screenWackyAlpha = 1f;
             }
             screenEffectSettings.LerpToNewSettings(startSettings, maxSettings, screenWackyAlpha);
+
+           if(t < MaxTimeInDarkness)
+            {
+                t += Time.deltaTime;
+                if(t >= MaxTimeInDarkness && canDie)
+                {
+                    KillPlayer();
+                }
+            }
         }
 
         GetComponentInChildren<ScreenWaveEffect>().SetProperties(screenEffectSettings);
+    }
+
+    private void KillPlayer()
+    {
+        StartCoroutine(KillRoutine());
+    }
+    IEnumerator KillRoutine()
+    {
+        imageAnime.Play("MakeBlack");
+        yield return new WaitForSeconds(1.1f);
+        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
 }
