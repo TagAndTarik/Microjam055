@@ -14,25 +14,28 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
     private const float FloorHeight = 2.5f;
     private const float InitialDoorDistance = CellSize * 4.5f;
     private const float BoundaryDepth = 0.2f;
-    private const float VisibilityProbeSize = 0.15f;
     private const float VisibilityVerticalOffset = 1.2f;
     private const float VisibilityLateralOffset = 0.45f;
+    private const float VisibilityRayTolerance = 0.05f;
     private const float MinimumHiddenGenerationDistance = CellSize * 2.25f;
     private const float EntryRoomActivationPadding = 0.2f;
-    private const int RequiredMainSegmentsAhead = 4;
+    private const int RequiredMainSegmentsAhead = 3;
     private const int MaxGenerationAttemptsPerType = 10;
-    private const int BranchSegmentsPerMainSegment = 2;
-    private const int MaxBranchDepth = 4;
-    private const int MaxPendingFrontiers = 20;
+    private const int BranchSegmentsPerMainSegment = 1;
+    private const int MaxBranchDepth = 2;
+    private const int MaxPendingFrontiers = 10;
     private const int RetainedMainSegmentsBehind = 0;
-    private const int MaxSegmentsRecycledPerUpdate = 2;
-    private const float BranchRecycleDistance = CellSize * 7f;
+    private const int MaxSegmentsRecycledPerUpdate = 4;
+    private const float BranchRecycleDistance = CellSize * 4.5f;
+    private const int MaxLiveCells = 100;
+    private const int WindowViewDepth = 2;
+    private const int WindowViewHalfWidth = 1;
     private const bool UseExteriorWindows = true;
-    private const float RoomExtraExitChance = 0.8f;
-    private const float HallwayTurnChance = 0.72f;
-    private const float HallwaySecondTurnChance = 0.3f;
-    private const float HallwayBranchChance = 0.7f;
-    private const float LoopDoorChance = 0.18f;
+    private const float RoomExtraExitChance = 0.22f;
+    private const float HallwayTurnChance = 0.62f;
+    private const float HallwaySecondTurnChance = 0.18f;
+    private const float HallwayBranchChance = 0.18f;
+    private const float LoopDoorChance = 0f;
     private const float RoomWindowChance = 0.3f;
     private const float HallWindowChance = 0.22f;
 
@@ -68,11 +71,13 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
     private Frontier mainTailFrontier;
     private Bounds entryRoomBounds;
     private BoundaryKey entryExitBoundary;
+    private BoundaryKey entryFrontBoundary;
     private int sessionSeed;
     private int currentMainPathIndex;
     private int branchSegmentCount;
     private bool initialized;
     private bool generationStarted;
+    private bool entryFrontConvertedToWindow;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Bootstrap()
@@ -117,6 +122,7 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
             return;
         }
 
+        TryConvertEntryFrontDoorToWindow();
         currentMainPathIndex = FindCurrentMainPathIndex(playerTransform.position);
         RecycleStaleSegments();
         PrunePendingFrontiers();
@@ -210,6 +216,7 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         generationStarted = false;
         branchSegmentCount = 0;
         currentMainPathIndex = 0;
+        entryFrontConvertedToWindow = false;
 
         SegmentBlueprint blueprint = new SegmentBlueprint(SegmentType.Entry);
         GridCoord firstCell = GridCoord.Zero;
@@ -225,9 +232,10 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         mainPathSegmentIndices.Add(entrySegment.Index);
         mainTailFrontier = blueprint.ExitFrontier;
         entryRoomBounds = entrySegment.WorldBounds;
+        entryFrontBoundary = GetCanonicalBoundary(firstCell, Opposite(initialDirection));
         entryExitBoundary = GetCanonicalBoundary(secondCell, initialDirection);
 
-        doorBoundaries.Add(GetCanonicalBoundary(firstCell, Opposite(initialDirection)));
+        doorBoundaries.Add(entryFrontBoundary);
         doorBoundaries.Add(entryExitBoundary);
         RefreshBoundariesForSegment(entrySegment.Cells, null, blueprint);
     }
@@ -251,6 +259,19 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         EnsureGenerationBuffers(false);
     }
 
+    private void TryConvertEntryFrontDoorToWindow()
+    {
+        if (entryFrontConvertedToWindow || !generationStarted)
+            return;
+
+        if (!IsBoundaryHidden(entryFrontBoundary))
+            return;
+
+        doorBoundaries.Remove(entryFrontBoundary);
+        entryFrontConvertedToWindow = true;
+        UpdateBoundary(entryFrontBoundary, ResolveBoundaryVisual(entryFrontBoundary));
+    }
+
     private void EnsureGenerationBuffers(bool ignoreVisibility)
     {
         int mainAttempts = 0;
@@ -263,11 +284,11 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
             mainAttempts++;
         }
 
-        int targetBranchSegments = Mathf.Max(2, mainPathSegmentIndices.Count * BranchSegmentsPerMainSegment);
+        int targetBranchSegments = Mathf.Max(1, (mainPathSegmentIndices.Count - 1) * BranchSegmentsPerMainSegment);
         int branchAttempts = 0;
         while ((branchSegmentCount < targetBranchSegments || HasPendingExteriorDoorFrontier()) &&
                pendingFrontiers.Count > 0 &&
-               branchAttempts < targetBranchSegments + 6)
+               branchAttempts < targetBranchSegments + 4)
         {
             if (!TryExtendBranch(ignoreVisibility))
                 break;
@@ -323,10 +344,8 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         if (pendingFrontiers.Count == 0)
             return false;
 
-        int startIndex = random.Next(pendingFrontiers.Count);
-        for (int offset = 0; offset < pendingFrontiers.Count; offset++)
+        for (int index = 0; index < pendingFrontiers.Count; index++)
         {
-            int index = (startIndex + offset) % pendingFrontiers.Count;
             PendingFrontier pending = pendingFrontiers[index];
             BoundaryKey boundary = GetCanonicalBoundary(pending.Frontier.SourceCell, pending.Frontier.Direction);
             if (!CanGenerateAtBoundary(boundary, ignoreVisibility))
@@ -405,10 +424,19 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
     {
         const int hiddenAttempts = 4;
         bool foundVisibleCandidate = false;
+        bool foundDeferredCandidate = false;
         for (int attempt = 0; attempt < hiddenAttempts; attempt++)
         {
             if (!TryBuildNextSegment(frontier, out blueprint))
-                return foundVisibleCandidate ? HiddenBuildResult.VisibleOnly : HiddenBuildResult.NoBlueprint;
+                return foundVisibleCandidate || foundDeferredCandidate
+                    ? HiddenBuildResult.Deferred
+                    : HiddenBuildResult.NoBlueprint;
+
+            if (WouldExceedLiveCellCap(blueprint))
+            {
+                foundDeferredCandidate = true;
+                continue;
+            }
 
             if (ignoreVisibility || IsBlueprintHidden(frontier, blueprint))
                 return HiddenBuildResult.Success;
@@ -417,7 +445,9 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         }
 
         blueprint = default;
-        return foundVisibleCandidate ? HiddenBuildResult.VisibleOnly : HiddenBuildResult.NoBlueprint;
+        return foundVisibleCandidate || foundDeferredCandidate
+            ? HiddenBuildResult.Deferred
+            : HiddenBuildResult.NoBlueprint;
     }
 
     private bool TryBuildNextSegment(Frontier frontier, out SegmentBlueprint blueprint)
@@ -646,6 +676,9 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         {
             if (cells.ContainsKey(blueprint.Cells[i].Coord))
                 return false;
+
+            if (WouldConsumeExistingWindowView(blueprint.Cells[i].Coord))
+                return false;
         }
 
         if (!IsFrontierAvailable(blueprint, blueprint.ExitFrontier))
@@ -837,9 +870,9 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
             EnqueueFrontier(blueprint.BranchFrontiers[i], remainingDepth);
     }
 
-    private void EnqueueFrontier(Frontier frontier, int remainingDepth)
+    private void EnqueueFrontier(Frontier frontier, int remainingDepth, bool prioritizeFront = false)
     {
-        if (remainingDepth <= 0 || pendingFrontiers.Count >= MaxPendingFrontiers)
+        if (remainingDepth <= 0)
             return;
 
         if (FrontierEquals(frontier, mainTailFrontier))
@@ -848,10 +881,33 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         for (int i = 0; i < pendingFrontiers.Count; i++)
         {
             if (FrontierEquals(pendingFrontiers[i].Frontier, frontier))
+            {
+                PendingFrontier updated = pendingFrontiers[i];
+                if (remainingDepth > updated.RemainingDepth)
+                    updated = new PendingFrontier(frontier, remainingDepth);
+
+                pendingFrontiers.RemoveAt(i);
+                if (prioritizeFront)
+                    pendingFrontiers.Insert(0, updated);
+                else
+                    pendingFrontiers.Insert(Mathf.Min(i, pendingFrontiers.Count), updated);
                 return;
+            }
         }
 
-        pendingFrontiers.Add(new PendingFrontier(frontier, remainingDepth));
+        if (pendingFrontiers.Count >= MaxPendingFrontiers)
+        {
+            if (!prioritizeFront)
+                return;
+
+            pendingFrontiers.RemoveAt(pendingFrontiers.Count - 1);
+        }
+
+        PendingFrontier pendingFrontier = new PendingFrontier(frontier, remainingDepth);
+        if (prioritizeFront)
+            pendingFrontiers.Insert(0, pendingFrontier);
+        else
+            pendingFrontiers.Add(pendingFrontier);
     }
 
     private bool CanGenerateAtBoundary(BoundaryKey boundary, bool ignoreVisibility)
@@ -956,6 +1012,13 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         if (doorBoundaries.Contains(key))
             return BoundaryVisualType.DoorWall;
 
+        if (entryFrontConvertedToWindow &&
+            key.Equals(entryFrontBoundary) &&
+            (hasA ^ hasB))
+        {
+            return BoundaryVisualType.WindowWall;
+        }
+
         if (hasA && hasB)
             return BoundaryVisualType.Wall;
 
@@ -979,6 +1042,9 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         if (!IsExteriorBoundary(GetCanonicalBoundary(cell.Coord, side)))
             return false;
 
+        if (!HasOutdoorViewClearance(cell.Coord, side))
+            return false;
+
         switch (segment.WindowPattern)
         {
             case WindowPattern.RoomEastWest:
@@ -994,77 +1060,32 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
 
     private bool IsBoundaryHidden(BoundaryKey boundary)
     {
-        if (playerCamera == null)
+        Plane[] cameraPlanes = GetCurrentCameraPlanes();
+        if (cameraPlanes == null)
             return false;
 
-        Bounds bounds = GetBoundaryBounds(boundary);
-        Plane[] planes = GeometryUtility.CalculateFrustumPlanes(playerCamera);
-        if (!GeometryUtility.TestPlanesAABB(planes, bounds))
-            return true;
-
-        Vector3[] samplePoints = GetBoundarySamplePoints(boundary);
-        GameObject boundaryObject = boundaryObjects.TryGetValue(boundary, out GameObject existing) ? existing : null;
-
-        for (int i = 0; i < samplePoints.Length; i++)
-        {
-            Bounds sampleBounds = new Bounds(samplePoints[i], Vector3.one * VisibilityProbeSize);
-            if (!GeometryUtility.TestPlanesAABB(planes, sampleBounds))
-                continue;
-
-            if (IsSampleVisible(samplePoints[i], boundaryObject))
-                return false;
-        }
-
-        return true;
-    }
-
-    private bool IsSampleVisible(Vector3 samplePoint, GameObject boundaryObject)
-    {
-        Vector3 origin = playerCamera.transform.position;
-        Vector3 direction = samplePoint - origin;
-        float distance = direction.magnitude;
-        if (distance <= 0.001f)
-            return true;
-
-        RaycastHit[] hits = Physics.RaycastAll(origin, direction / distance, distance + 0.05f, ~0, QueryTriggerInteraction.Ignore);
-        Array.Sort(hits, CompareHitsByDistance);
-
-        for (int i = 0; i < hits.Length; i++)
-        {
-            Collider hitCollider = hits[i].collider;
-            if (hitCollider == null)
-                continue;
-
-            if (playerTransform != null && hitCollider.transform.IsChildOf(playerTransform))
-                continue;
-
-            if (boundaryObject != null && hitCollider.transform.IsChildOf(boundaryObject.transform))
-                return true;
-
-            if (hits[i].distance < distance - 0.02f)
-                return false;
-        }
-
-        return boundaryObject == null;
+        return !GeometryUtility.TestPlanesAABB(cameraPlanes, GetBoundaryBounds(boundary));
     }
 
     private bool IsBlueprintHidden(Frontier entranceFrontier, SegmentBlueprint blueprint)
     {
-        if (playerCamera == null)
+        Plane[] cameraPlanes = GetCurrentCameraPlanes();
+        if (cameraPlanes == null)
             return true;
+
+        BoundaryKey entranceBoundary = GetCanonicalBoundary(entranceFrontier.SourceCell, entranceFrontier.Direction);
+        GameObject coverObject = GetGenerationCoverObject(entranceBoundary);
 
         for (int i = 0; i < blueprint.CellCount; i++)
         {
-            GridCoord coord = blueprint.Cells[i].Coord;
-            Vector3[] samplePoints = GetCellVisibilitySamplePoints(coord);
+            Vector3[] samplePoints = GetCellVisibilitySamplePoints(blueprint.Cells[i].Coord);
             for (int sampleIndex = 0; sampleIndex < samplePoints.Length; sampleIndex++)
             {
-                if (IsWorldPointVisible(samplePoints[sampleIndex]))
+                if (IsPointExposedToCamera(samplePoints[sampleIndex], cameraPlanes, coverObject))
                     return false;
             }
         }
 
-        BoundaryKey entranceBoundary = GetCanonicalBoundary(entranceFrontier.SourceCell, entranceFrontier.Direction);
         HashSet<BoundaryKey> sampledBoundaries = new HashSet<BoundaryKey>();
         for (int i = 0; i < blueprint.CellCount; i++)
         {
@@ -1090,7 +1111,7 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
                 Vector3[] boundarySamplePoints = GetBoundarySamplePoints(boundary);
                 for (int sampleIndex = 0; sampleIndex < boundarySamplePoints.Length; sampleIndex++)
                 {
-                    if (IsWorldPointVisible(boundarySamplePoints[sampleIndex]))
+                    if (IsPointExposedToCamera(boundarySamplePoints[sampleIndex], cameraPlanes, coverObject))
                         return false;
                 }
             }
@@ -1099,89 +1120,22 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         return true;
     }
 
-    private bool IsWorldPointVisible(Vector3 point)
-    {
-        Vector3 viewport = playerCamera.WorldToViewportPoint(point);
-        if (viewport.z <= 0f || viewport.x < 0f || viewport.x > 1f || viewport.y < 0f || viewport.y > 1f)
-            return false;
-
-        Vector3 origin = playerCamera.transform.position;
-        Vector3 direction = point - origin;
-        float distance = direction.magnitude;
-        if (distance <= 0.001f)
-            return true;
-
-        RaycastHit[] hits = Physics.RaycastAll(origin, direction / distance, distance - 0.02f, ~0, QueryTriggerInteraction.Ignore);
-        Array.Sort(hits, CompareHitsByDistance);
-        for (int i = 0; i < hits.Length; i++)
-        {
-            Collider hitCollider = hits[i].collider;
-            if (hitCollider == null)
-                continue;
-
-            if (playerTransform != null && hitCollider.transform.IsChildOf(playerTransform))
-                continue;
-
-            return false;
-        }
-
-        return true;
-    }
-
-    private Vector3[] GetCellVisibilitySamplePoints(GridCoord coord)
-    {
-        Vector3 center = GetCellWorldPosition(coord);
-        float inset = CellSize * 0.22f;
-        return new[]
-        {
-            center + new Vector3(0f, VisibilityVerticalOffset, 0f),
-            center + new Vector3(inset, VisibilityVerticalOffset, 0f),
-            center + new Vector3(-inset, VisibilityVerticalOffset, 0f),
-            center + new Vector3(0f, VisibilityVerticalOffset, inset),
-            center + new Vector3(0f, VisibilityVerticalOffset, -inset),
-            center + new Vector3(0f, FloorHeight * 0.82f, 0f)
-        };
-    }
-
     private void RecycleStaleSegments()
     {
         if (playerTransform == null || segments.Count <= 1)
             return;
 
         int recycledCount = 0;
-        int keepFromMainIndex = Mathf.Max(1, currentMainPathIndex - RetainedMainSegmentsBehind);
-        int mainIndex = 1;
-        while (mainIndex < keepFromMainIndex && recycledCount < MaxSegmentsRecycledPerUpdate)
+        while (recycledCount < MaxSegmentsRecycledPerUpdate)
         {
-            int segmentIndex = mainPathSegmentIndices[mainIndex];
+            int playerSegmentIndex = FindPlayerSegmentIndex(playerTransform.position);
+            if (!TryGetBestRecycleCandidate(playerSegmentIndex, out int segmentIndex))
+                break;
+
             if (!TryRecycleSegment(segmentIndex))
-            {
-                mainIndex++;
-                continue;
-            }
+                break;
 
-            mainPathSegmentIndices.RemoveAt(mainIndex);
-            keepFromMainIndex--;
-            currentMainPathIndex = Mathf.Max(0, currentMainPathIndex - 1);
             recycledCount++;
-        }
-
-        if (recycledCount >= MaxSegmentsRecycledPerUpdate)
-            return;
-
-        float recycleDistanceSqr = BranchRecycleDistance * BranchRecycleDistance;
-        for (int i = 1; i < segments.Count && recycledCount < MaxSegmentsRecycledPerUpdate; i++)
-        {
-            SegmentData segment = segments[i];
-            if (segment == null || !segment.IsActive || segment.IsMainPath)
-                continue;
-
-            float distanceSqr = segment.WorldBounds.SqrDistance(playerTransform.position);
-            if (distanceSqr <= recycleDistanceSqr)
-                continue;
-
-            if (TryRecycleSegment(segment.Index))
-                recycledCount++;
         }
     }
 
@@ -1201,6 +1155,10 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
 
         if (!IsSegmentHidden(segment))
             return false;
+
+        int removedMainPathIndex = -1;
+        if (segment.IsMainPath)
+            removedMainPathIndex = mainPathSegmentIndices.IndexOf(segment.Index);
 
         HashSet<BoundaryKey> affectedBoundaries = new HashSet<BoundaryKey>();
         List<Frontier> recycleFrontiers = new List<Frontier>();
@@ -1269,7 +1227,7 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
             BoundaryKey boundary = GetCanonicalBoundary(frontier.SourceCell, frontier.Direction);
             openBoundaries.Remove(boundary);
             doorBoundaries.Add(boundary);
-            EnqueueFrontier(frontier, MaxBranchDepth);
+            EnqueueFrontier(frontier, MaxBranchDepth, prioritizeFront: true);
             affectedBoundaries.Add(boundary);
         }
 
@@ -1278,6 +1236,13 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
 
         if (!segment.IsMainPath && branchSegmentCount > 0)
             branchSegmentCount--;
+
+        if (removedMainPathIndex >= 0)
+        {
+            mainPathSegmentIndices.RemoveAt(removedMainPathIndex);
+            if (removedMainPathIndex <= currentMainPathIndex)
+                currentMainPathIndex = Mathf.Max(0, currentMainPathIndex - 1);
+        }
 
         segment.IsActive = false;
         segment.Root = null;
@@ -1291,20 +1256,41 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
 
     private bool IsSegmentHidden(SegmentData segment)
     {
-        if (playerCamera == null || segment == null)
+        Plane[] cameraPlanes = GetCurrentCameraPlanes();
+        if (cameraPlanes == null || segment == null)
             return true;
 
+        if (GeometryUtility.TestPlanesAABB(cameraPlanes, segment.WorldBounds))
+            return false;
+
+        HashSet<BoundaryKey> sampledBoundaries = new HashSet<BoundaryKey>();
         for (int i = 0; i < segment.Cells.Count; i++)
         {
-            Vector3[] samplePoints = GetCellVisibilitySamplePoints(segment.Cells[i]);
-            for (int sampleIndex = 0; sampleIndex < samplePoints.Length; sampleIndex++)
+            GridCoord coord = segment.Cells[i];
+            for (int directionIndex = 0; directionIndex < AllDirections.Length; directionIndex++)
             {
-                if (IsWorldPointVisible(samplePoints[sampleIndex]))
+                Direction direction = AllDirections[directionIndex];
+                GridCoord neighbor = coord.Step(direction);
+                if (cells.TryGetValue(neighbor, out CellData neighborCell) && neighborCell.SegmentIndex == segment.Index)
+                    continue;
+
+                BoundaryKey boundary = GetCanonicalBoundary(coord, direction);
+                if (!sampledBoundaries.Add(boundary))
+                    continue;
+
+                if (GeometryUtility.TestPlanesAABB(cameraPlanes, GetBoundaryBounds(boundary)))
                     return false;
             }
         }
 
         return true;
+    }
+
+    private bool CanGenerateBehindDoor(BoundaryKey boundary)
+    {
+        return boundaryVisuals.TryGetValue(boundary, out BoundaryVisualType type) &&
+               type == BoundaryVisualType.DoorWall &&
+               IsExteriorBoundary(boundary);
     }
 
     private void PrunePendingFrontiers()
@@ -1322,11 +1308,66 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         return left.distance.CompareTo(right.distance);
     }
 
-    private bool CanGenerateBehindDoor(BoundaryKey boundary)
+    private Plane[] GetCurrentCameraPlanes()
     {
-        return boundaryVisuals.TryGetValue(boundary, out BoundaryVisualType type) &&
-               type == BoundaryVisualType.DoorWall &&
-               IsExteriorBoundary(boundary);
+        if (PlayerManager.PlayerManagerInstance != null &&
+            PlayerManager.PlayerManagerInstance.cameraPlanes != null &&
+            PlayerManager.PlayerManagerInstance.cameraPlanes.Length > 0)
+        {
+            return PlayerManager.PlayerManagerInstance.cameraPlanes;
+        }
+
+        if (playerCamera == null)
+            return null;
+
+        return GeometryUtility.CalculateFrustumPlanes(playerCamera);
+    }
+
+    private GameObject GetGenerationCoverObject(BoundaryKey entranceBoundary)
+    {
+        if (!boundaryVisuals.TryGetValue(entranceBoundary, out BoundaryVisualType type) || type != BoundaryVisualType.DoorWall)
+            return null;
+
+        boundaryObjects.TryGetValue(entranceBoundary, out GameObject coverObject);
+        return coverObject;
+    }
+
+    private bool IsPointExposedToCamera(Vector3 point, Plane[] cameraPlanes, GameObject coverObject)
+    {
+        if (playerCamera == null)
+            return false;
+
+        Bounds sampleBounds = new Bounds(point, Vector3.one * 0.12f);
+        if (!GeometryUtility.TestPlanesAABB(cameraPlanes, sampleBounds))
+            return false;
+
+        Vector3 origin = playerCamera.transform.position;
+        Vector3 direction = point - origin;
+        float distance = direction.magnitude;
+        if (distance <= 0.001f)
+            return true;
+
+        RaycastHit[] hits = Physics.RaycastAll(origin, direction / distance, distance + VisibilityRayTolerance, ~0, QueryTriggerInteraction.Ignore);
+        Array.Sort(hits, CompareHitsByDistance);
+        for (int i = 0; i < hits.Length; i++)
+        {
+            Collider hitCollider = hits[i].collider;
+            if (hitCollider == null)
+                continue;
+
+            if (playerTransform != null && hitCollider.transform.IsChildOf(playerTransform))
+                continue;
+
+            if (coverObject != null && hitCollider.transform.IsChildOf(coverObject.transform))
+                return false;
+
+            if (hits[i].distance < distance - VisibilityRayTolerance)
+                return false;
+
+            return true;
+        }
+
+        return true;
     }
 
     private bool IsExteriorBoundary(BoundaryKey boundary)
@@ -1387,7 +1428,261 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
 
     private bool IsWindowEligibleBoundary(BoundaryKey boundary)
     {
-        return IsExteriorBoundary(boundary) && !doorBoundaries.Contains(boundary);
+        if (!IsExteriorBoundary(boundary) || doorBoundaries.Contains(boundary))
+            return false;
+
+        if (!TryGetExteriorBoundaryCell(boundary, out CellData cell, out Direction exteriorSide))
+            return false;
+
+        return HasOutdoorViewClearance(cell.Coord, exteriorSide);
+    }
+
+    private bool WouldExceedLiveCellCap(SegmentBlueprint blueprint)
+    {
+        return cells.Count + blueprint.CellCount > MaxLiveCells;
+    }
+
+    private bool HasOutdoorViewClearance(GridCoord cell, Direction side)
+    {
+        for (int forward = 1; forward <= WindowViewDepth; forward++)
+        {
+            GridCoord forwardCoord = StepCoord(cell, side, forward);
+            for (int lateral = -WindowViewHalfWidth; lateral <= WindowViewHalfWidth; lateral++)
+            {
+                GridCoord sample = OffsetLateral(forwardCoord, side, lateral);
+                if (cells.ContainsKey(sample))
+                    return false;
+            }
+        }
+
+        return true;
+    }
+
+    private bool WouldConsumeExistingWindowView(GridCoord coord)
+    {
+        foreach (KeyValuePair<BoundaryKey, BoundaryVisualType> pair in boundaryVisuals)
+        {
+            if (pair.Value != BoundaryVisualType.WindowWall || !IsExteriorBoundary(pair.Key))
+                continue;
+
+            if (IsCoordInWindowView(pair.Key, coord))
+                return true;
+        }
+
+        return false;
+    }
+
+    private bool IsCoordInWindowView(BoundaryKey boundary, GridCoord coord)
+    {
+        if (!TryGetExteriorBoundaryCell(boundary, out CellData cell, out Direction exteriorSide))
+            return false;
+
+        for (int forward = 1; forward <= WindowViewDepth; forward++)
+        {
+            GridCoord forwardCoord = StepCoord(cell.Coord, exteriorSide, forward);
+            for (int lateral = -WindowViewHalfWidth; lateral <= WindowViewHalfWidth; lateral++)
+            {
+                if (OffsetLateral(forwardCoord, exteriorSide, lateral).Equals(coord))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool TryGetExteriorBoundaryCell(BoundaryKey boundary, out CellData cell, out Direction exteriorSide)
+    {
+        bool hasA = cells.TryGetValue(boundary.Cell, out CellData cellA);
+        GridCoord neighbor = boundary.Cell.Step(boundary.Side);
+        bool hasB = cells.TryGetValue(neighbor, out CellData cellB);
+        if (hasA == hasB)
+        {
+            cell = null;
+            exteriorSide = boundary.Side;
+            return false;
+        }
+
+        cell = hasA ? cellA : cellB;
+        exteriorSide = hasA ? boundary.Side : Opposite(boundary.Side);
+        return true;
+    }
+
+    private bool TryGetBestRecycleCandidate(int playerSegmentIndex, out int segmentIndex)
+    {
+        segmentIndex = -1;
+        if (playerSegmentIndex < 0)
+            return false;
+
+        Dictionary<int, int> graphDistances = BuildReachableSegmentDistances(playerSegmentIndex);
+        int bestPriority = int.MaxValue;
+        float bestDistance = float.PositiveInfinity;
+
+        for (int i = 1; i < segments.Count; i++)
+        {
+            SegmentData segment = segments[i];
+            if (segment == null || !segment.IsActive || segment.Index == playerSegmentIndex)
+                continue;
+
+            if (!TryGetRecyclePriority(segment.Index, segment, graphDistances, out int priority))
+                continue;
+
+            if (!IsSegmentHidden(segment))
+                continue;
+
+            float distance = segment.WorldBounds.SqrDistance(playerTransform.position);
+            if (priority > bestPriority)
+                continue;
+
+            if (priority == bestPriority && distance >= bestDistance)
+                continue;
+
+            bestPriority = priority;
+            bestDistance = distance;
+            segmentIndex = segment.Index;
+        }
+
+        return segmentIndex >= 0;
+    }
+
+    private bool TryGetRecyclePriority(
+        int segmentIndex,
+        SegmentData segment,
+        Dictionary<int, int> graphDistances,
+        out int priority)
+    {
+        priority = int.MaxValue;
+        if (!graphDistances.TryGetValue(segmentIndex, out int graphDistance))
+        {
+            priority = 0;
+            return true;
+        }
+
+        if (segment.IsMainPath)
+        {
+            int mainPathIndex = mainPathSegmentIndices.IndexOf(segmentIndex);
+            if (mainPathIndex > 0 && mainPathIndex < currentMainPathIndex - RetainedMainSegmentsBehind)
+            {
+                priority = 1 + (currentMainPathIndex - mainPathIndex - 1);
+                return true;
+            }
+
+            return false;
+        }
+
+        if (graphDistance <= 1)
+        {
+            priority = 12;
+            return true;
+        }
+
+        float recycleDistanceSqr = BranchRecycleDistance * BranchRecycleDistance;
+        if (segment.WorldBounds.SqrDistance(playerTransform.position) > recycleDistanceSqr)
+        {
+            priority = 20 + graphDistance;
+            return true;
+        }
+
+        return false;
+    }
+
+    private int FindPlayerSegmentIndex(Vector3 playerPosition)
+    {
+        int closestIndex = -1;
+        float closestDistance = float.PositiveInfinity;
+        for (int i = 0; i < segments.Count; i++)
+        {
+            SegmentData segment = segments[i];
+            if (segment == null || !segment.IsActive)
+                continue;
+
+            Bounds expanded = segment.WorldBounds;
+            expanded.Expand(new Vector3(0.2f, 1.2f, 0.2f));
+            if (expanded.Contains(playerPosition))
+                return segment.Index;
+
+            float sqrDistance = segment.WorldBounds.SqrDistance(playerPosition);
+            if (sqrDistance >= closestDistance)
+                continue;
+
+            closestDistance = sqrDistance;
+            closestIndex = segment.Index;
+        }
+
+        return closestIndex;
+    }
+
+    private Dictionary<int, int> BuildReachableSegmentDistances(int startSegmentIndex)
+    {
+        Dictionary<int, HashSet<int>> adjacency = new Dictionary<int, HashSet<int>>();
+        foreach (KeyValuePair<GridCoord, CellData> pair in cells)
+        {
+            CellData cell = pair.Value;
+            if (cell == null || cell.SegmentIndex < 0 || cell.SegmentIndex >= segments.Count || !segments[cell.SegmentIndex].IsActive)
+                continue;
+
+            for (int directionIndex = 0; directionIndex < AllDirections.Length; directionIndex++)
+            {
+                Direction direction = AllDirections[directionIndex];
+                if (!cells.TryGetValue(cell.Coord.Step(direction), out CellData neighbor))
+                    continue;
+
+                if (neighbor.SegmentIndex == cell.SegmentIndex ||
+                    neighbor.SegmentIndex < 0 ||
+                    neighbor.SegmentIndex >= segments.Count ||
+                    !segments[neighbor.SegmentIndex].IsActive)
+                {
+                    continue;
+                }
+
+                BoundaryKey boundary = GetCanonicalBoundary(cell.Coord, direction);
+                if (!IsBoundaryPassable(boundary))
+                    continue;
+
+                AddAdjacency(adjacency, cell.SegmentIndex, neighbor.SegmentIndex);
+                AddAdjacency(adjacency, neighbor.SegmentIndex, cell.SegmentIndex);
+            }
+        }
+
+        Dictionary<int, int> distances = new Dictionary<int, int>();
+        if (startSegmentIndex < 0 || startSegmentIndex >= segments.Count || !segments[startSegmentIndex].IsActive)
+            return distances;
+
+        Queue<int> queue = new Queue<int>();
+        distances[startSegmentIndex] = 0;
+        queue.Enqueue(startSegmentIndex);
+        while (queue.Count > 0)
+        {
+            int current = queue.Dequeue();
+            if (!adjacency.TryGetValue(current, out HashSet<int> neighbors))
+                continue;
+
+            foreach (int neighbor in neighbors)
+            {
+                if (distances.ContainsKey(neighbor))
+                    continue;
+
+                distances[neighbor] = distances[current] + 1;
+                queue.Enqueue(neighbor);
+            }
+        }
+
+        return distances;
+    }
+
+    private static void AddAdjacency(Dictionary<int, HashSet<int>> adjacency, int from, int to)
+    {
+        if (!adjacency.TryGetValue(from, out HashSet<int> neighbors))
+        {
+            neighbors = new HashSet<int>();
+            adjacency[from] = neighbors;
+        }
+
+        neighbors.Add(to);
+    }
+
+    private bool IsBoundaryPassable(BoundaryKey boundary)
+    {
+        return openBoundaries.Contains(boundary) || doorBoundaries.Contains(boundary);
     }
 
     private Bounds GetBoundaryBounds(BoundaryKey boundary)
@@ -1537,10 +1832,43 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
         return coord;
     }
 
+    private static GridCoord StepCoord(GridCoord coord, Direction direction, int count)
+    {
+        GridCoord stepped = coord;
+        for (int i = 0; i < count; i++)
+            stepped = stepped.Step(direction);
+
+        return stepped;
+    }
+
+    private static GridCoord OffsetLateral(GridCoord coord, Direction forward, int lateralSteps)
+    {
+        if (lateralSteps == 0)
+            return coord;
+
+        Direction lateralDirection = lateralSteps > 0 ? TurnRight(forward) : TurnLeft(forward);
+        return StepCoord(coord, lateralDirection, Mathf.Abs(lateralSteps));
+    }
+
     private Bounds GetCellBounds(GridCoord coord)
     {
         Vector3 center = GetCellWorldPosition(coord) + new Vector3(0f, FloorHeight * 0.5f, 0f);
         return new Bounds(center, new Vector3(CellSize, FloorHeight, CellSize));
+    }
+
+    private Vector3[] GetCellVisibilitySamplePoints(GridCoord coord)
+    {
+        Vector3 center = GetCellWorldPosition(coord);
+        float inset = CellSize * 0.22f;
+        return new[]
+        {
+            center + new Vector3(0f, VisibilityVerticalOffset, 0f),
+            center + new Vector3(inset, VisibilityVerticalOffset, 0f),
+            center + new Vector3(-inset, VisibilityVerticalOffset, 0f),
+            center + new Vector3(0f, VisibilityVerticalOffset, inset),
+            center + new Vector3(0f, VisibilityVerticalOffset, -inset),
+            center + new Vector3(0f, FloorHeight * 0.82f, 0f)
+        };
     }
 
     private Vector3 GetCellWorldPosition(GridCoord coord)
@@ -1682,7 +2010,7 @@ public sealed class ProceduralHouseGenerator : MonoBehaviour
     private enum HiddenBuildResult
     {
         NoBlueprint,
-        VisibleOnly,
+        Deferred,
         Success
     }
 
