@@ -9,7 +9,9 @@ public class PlayerManager : MonoBehaviour
 
     public static PlayerManager PlayerManagerInstance { get; private set; }
 
-    
+    public bool squishOne;
+    public bool squishTwo;
+    public bool dead;
 
     private void Awake()
     {
@@ -27,7 +29,11 @@ public class PlayerManager : MonoBehaviour
     private void Update()
     {
         cameraPlanes = GeometryUtility.CalculateFrustumPlanes(Camera.main);
-        
+        if(squishOne && squishTwo && !dead)
+        {
+            dead = true;
+            GetComponent<SimpleFirstPersonController>().EndGame();
+        }
     }
 
     private void OnTriggerEnter(Collider other)
@@ -57,4 +63,6 @@ public class PlayerManager : MonoBehaviour
     }
 
     
+
+
 }

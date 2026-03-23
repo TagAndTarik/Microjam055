@@ -36,7 +36,7 @@ Material:
     - _BrightnessGain: 1.08
     - _ColorOffset: 0.002
     - _Intensity: 0
-    - _OverlayEnabled: 1
+    - _OverlayEnabled: 0
     - _RetroPixelSize: 4
     - _ScanlineStrength: 0
     m_Colors: []

@@ -1026,6 +1026,20 @@ public class SimpleFirstPersonController : MonoBehaviour
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
 
+    public void EndGame()
+    {
+        StartCoroutine (EndRoutine());
+    }
+
+    IEnumerator EndRoutine()
+    {
+        imageAnime.Play("MakeBlack");
+        yield return new WaitForSeconds(1.1f);
+        Instantiate(Resources.Load<GameObject>("SFXObjects/Squlech"), transform.position, Quaternion.identity);
+        yield return new WaitForSeconds(3.1f);
+        SceneManager.LoadScene("TestLevel2");
+    }
+
     private void CancelPendingDeath()
     {
         if (killRoutine != null)
