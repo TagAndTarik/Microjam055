@@ -156,7 +156,7 @@ public class TestLevel2IntroMenu : MonoBehaviour
         logoArea.sizeDelta = new Vector2(540f, 200f);
         BuildLogo(logoArea);
 
-        Text subtitle = CreateText(panel, "Subtitle", "", 24, BodyColor, TextAnchor.MiddleCenter);
+        Text subtitle = CreateText(panel, "Subtitle", "The Darkness is Coming", 24, BodyColor, TextAnchor.MiddleCenter);
         RectTransform subtitleRect = (RectTransform)subtitle.transform;
         subtitleRect.anchorMin = new Vector2(0.5f, 1f);
         subtitleRect.anchorMax = new Vector2(0.5f, 1f);
