@@ -24,8 +24,8 @@ public class TestLevel2IntroMenu : MonoBehaviour
         "Repository contributors\n" +
         "Tag Hunt\n" +
         "Tarik Campbell\n" +
-        "assets 1\n"+
-        "assets 2\n"+
+        "Biostart - Free Wood Door Pack\n"+
+        "nappin - House Interior - Free\n"+
         "Powered by Unity";
 
     private GameObject mainPage;

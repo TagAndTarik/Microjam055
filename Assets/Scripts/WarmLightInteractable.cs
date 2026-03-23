@@ -6,6 +6,7 @@ public class WarmLightInteractable : MonoBehaviour, IInteractable
     private static readonly Color DefaultHoverMessageColor = new Color(1f, 1f, 1f, 0.95f);
     private static readonly Color DefaultLightColor = new Color(1f, 0.73f, 0.48f, 1f);
     private const int DefaultHoverMessageFontSize = 18;
+    private const float DefaultPickupMessageDuration = 4.5f;
 
     [SerializeField] private InteractableOutline outline;
     [SerializeField] private Light targetLight;
@@ -26,11 +27,17 @@ public class WarmLightInteractable : MonoBehaviour, IInteractable
     [SerializeField] private bool enablePickupAfterLighting = true;
     [SerializeField] private PickupInteractable pickupInteractable;
 
+    [Header("Pickup Message")]
+    [SerializeField, TextArea] private string postPickupMessage = "This lamp is going to run out of oil fast. I better start looking for more.";
+    [SerializeField] private float postPickupMessageDuration = 4.5f;
+    [SerializeField] private bool showPickupMessageOnlyOnce = true;
+
     [Header("Lamp Glass")]
     [SerializeField] private string glassPartName = "Cube.004";
     [SerializeField] private Material unlitGlassMaterial;
 
     private bool isLit;
+    private bool hasShownPickupMessage;
     private Renderer glassPartRenderer;
     private Material[] litGlassPartMaterials;
 
@@ -43,6 +50,9 @@ public class WarmLightInteractable : MonoBehaviour, IInteractable
 
         if (hoverMessageFontSize <= 0)
             hoverMessageFontSize = DefaultHoverMessageFontSize;
+
+        if (postPickupMessageDuration <= 0f)
+            postPickupMessageDuration = DefaultPickupMessageDuration;
 
         pickupInteractable = ResolvePickupInteractable();
         targetLight = ResolveTargetLight();
@@ -59,6 +69,9 @@ public class WarmLightInteractable : MonoBehaviour, IInteractable
 
         if (hoverMessageFontSize <= 0)
             hoverMessageFontSize = DefaultHoverMessageFontSize;
+
+        if (postPickupMessageDuration <= 0f)
+            postPickupMessageDuration = DefaultPickupMessageDuration;
 
         if (pickupInteractable == null)
             pickupInteractable = GetComponent<PickupInteractable>();
@@ -107,6 +120,22 @@ public class WarmLightInteractable : MonoBehaviour, IInteractable
         ApplyLampGlassState();
         outline?.SetOutlined(false);
         EnablePickupIfConfigured();
+    }
+
+    public void TryShowPickupMessage(Transform interactor)
+    {
+        if (string.IsNullOrWhiteSpace(postPickupMessage))
+            return;
+
+        if (showPickupMessageOnlyOnce && hasShownPickupMessage)
+            return;
+
+        SimpleFirstPersonController controller = ResolvePlayerController(interactor);
+        if (controller == null)
+            return;
+
+        controller.ShowPlayerMessage(postPickupMessage, postPickupMessageDuration);
+        hasShownPickupMessage = true;
     }
 
     private Light ResolveTargetLight()
@@ -247,6 +276,13 @@ public class WarmLightInteractable : MonoBehaviour, IInteractable
         }
 
         gameObject.AddComponent<HeldLampPlanePhysics>();
+    }
+
+    private static SimpleFirstPersonController ResolvePlayerController(Transform interactor)
+    {
+        return interactor != null
+            ? interactor.GetComponentInParent<SimpleFirstPersonController>()
+            : FindObjectOfType<SimpleFirstPersonController>();
     }
 
     private static Transform FindDescendantByName(Transform root, string targetName)
