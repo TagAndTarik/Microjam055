@@ -21,11 +21,15 @@ public class TestLevel2IntroMenu : MonoBehaviour
     [SerializeField]
     private string creditsText =
         "A Microjam055 project\n\n" +
-        "Repository contributors\n" +
-        "Tag Hunt\n" +
-        "Tarik Campbell\n" +
+        "Repository contributors:\n" +
+        "Tag Hunt and " +
+        "Tarik Campbell\n\n" +
         "Biostart - Free Wood Door Pack\n"+
         "nappin - House Interior - Free\n"+
+        "That Individual - Free Cans pack\n"+
+        "Panchenko Lyudmila - Monster Mutant 7\n"+
+        "Icarous - Modular House Pack 1\n"+
+        "venomfx - Oil lamp\n"+
         "Powered by Unity";
 
     private GameObject mainPage;
