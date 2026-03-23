@@ -1037,7 +1037,7 @@ public class SimpleFirstPersonController : MonoBehaviour
         yield return new WaitForSeconds(1.1f);
         Instantiate(Resources.Load<GameObject>("SFXObjects/Squlech"), transform.position, Quaternion.identity);
         yield return new WaitForSeconds(3.1f);
-        SceneManager.LoadScene("EndScreen");
+        SceneManager.LoadScene("TestLevel2");
     }
 
     private void CancelPendingDeath()
