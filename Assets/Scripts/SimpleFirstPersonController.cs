@@ -105,6 +105,13 @@ public class SimpleFirstPersonController : MonoBehaviour
     [SerializeField] private ScreenEffectSettings startSettings;
     [SerializeField] private ScreenEffectSettings maxSettings;
     [SerializeField] private float screenEffectFactor = 0.05f;
+
+    [Header("White Noise")]
+    [SerializeField] private bool enableWhiteNoise = true;
+    [SerializeField] private AudioSource whiteNoiseAudioSource;
+    [SerializeField, Range(0f, 1f)] private float whiteNoiseMaxVolume = 0.18f;
+    [SerializeField, Min(0.01f)] private float whiteNoiseFadeSpeed = 4f;
+
     public float t = 0;
     public float MaxTimeInDarkness = 60f;
     public Animator imageAnime;
@@ -139,6 +146,9 @@ public class SimpleFirstPersonController : MonoBehaviour
     private Vector3 cameraPivotBaseLocalPosition;
     private Vector3 currentViewBobOffset;
     private float viewBobCycle;
+    private AudioClip runtimeWhiteNoiseClip;
+    private float currentWhiteNoiseVolume;
+    private Coroutine killRoutine;
 
     private void Awake()
     {
@@ -159,6 +169,7 @@ public class SimpleFirstPersonController : MonoBehaviour
         EnsureCrosshair();
         ApplyCrosshairStyle();
         SetCrosshairVisible(showCrosshair);
+        EnsureWhiteNoiseAudio();
 
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
@@ -170,6 +181,7 @@ public class SimpleFirstPersonController : MonoBehaviour
         EnsureCrosshair();
         ApplyCrosshairStyle();
         SetCrosshairVisible(showCrosshair);
+        EnsureWhiteNoiseAudio();
     }
 
     private void Update()
@@ -181,12 +193,27 @@ public class SimpleFirstPersonController : MonoBehaviour
         Move();
         UpdateViewBob();
         UpdateShader();
+        UpdateWhiteNoise();
     }
 
     private void OnDisable()
     {
         ClearCurrentInteractable();
         SetCrosshairVisible(false);
+        CancelPendingDeath();
+        currentWhiteNoiseVolume = 0f;
+
+        if (whiteNoiseAudioSource != null)
+        {
+            whiteNoiseAudioSource.volume = 0f;
+            whiteNoiseAudioSource.Stop();
+        }
+    }
+
+    private void OnDestroy()
+    {
+        if (runtimeWhiteNoiseClip != null)
+            Destroy(runtimeWhiteNoiseClip);
     }
 
     private void OnValidate()
@@ -206,6 +233,7 @@ public class SimpleFirstPersonController : MonoBehaviour
         viewBobHorizontalAmplitude = Mathf.Max(0f, viewBobHorizontalAmplitude);
         viewBobSmoothing = Mathf.Max(0.01f, viewBobSmoothing);
         minimumBobSpeed = Mathf.Max(0f, minimumBobSpeed);
+        whiteNoiseFadeSpeed = Mathf.Max(0.01f, whiteNoiseFadeSpeed);
 
         ApplyCrosshairStyle();
         SetCrosshairVisible(showCrosshair);
@@ -249,12 +277,14 @@ public class SimpleFirstPersonController : MonoBehaviour
         if (!hasLimitedVisibility)
             return false;
 
+        CancelPendingDeath();
         limitedVisibilityStartTime = Time.time;
         progress = 0f;
         t = 0;
         screenEffectSettings.CopySettings(startSettings);
         screenWackyAlpha = 0f;
         lastLampHeldState = IsLampHeld();
+        currentWhiteNoiseVolume = 0f;
 
         if (screenEffectSettings != null && startSettings != null)
             screenEffectSettings.CopySettings(startSettings);
@@ -262,6 +292,9 @@ public class SimpleFirstPersonController : MonoBehaviour
         ScreenWaveEffect screenWaveEffect = GetComponentInChildren<ScreenWaveEffect>();
         if (screenWaveEffect != null && screenEffectSettings != null)
             screenWaveEffect.SetProperties(screenEffectSettings);
+
+        if (whiteNoiseAudioSource != null)
+            whiteNoiseAudioSource.volume = 0f;
 
         ApplyStoredVisibilityLimit();
         return true;
@@ -846,6 +879,70 @@ public class SimpleFirstPersonController : MonoBehaviour
         return defaultHoverPromptFont;
     }
 
+    private void EnsureWhiteNoiseAudio()
+    {
+        if (!enableWhiteNoise)
+            return;
+
+        if (playerCamera == null)
+            playerCamera = GetComponentInChildren<Camera>();
+
+        if (whiteNoiseAudioSource == null)
+        {
+            GameObject audioHost = playerCamera != null ? playerCamera.gameObject : gameObject;
+            whiteNoiseAudioSource = audioHost.AddComponent<AudioSource>();
+        }
+
+        if (runtimeWhiteNoiseClip == null)
+            runtimeWhiteNoiseClip = CreateWhiteNoiseClip();
+
+        if (whiteNoiseAudioSource.clip != runtimeWhiteNoiseClip)
+            whiteNoiseAudioSource.clip = runtimeWhiteNoiseClip;
+
+        whiteNoiseAudioSource.playOnAwake = false;
+        whiteNoiseAudioSource.loop = true;
+        whiteNoiseAudioSource.spatialBlend = 0f;
+        whiteNoiseAudioSource.dopplerLevel = 0f;
+        whiteNoiseAudioSource.volume = currentWhiteNoiseVolume;
+
+        if (!whiteNoiseAudioSource.isPlaying)
+            whiteNoiseAudioSource.Play();
+    }
+
+    private void UpdateWhiteNoise()
+    {
+        if (!enableWhiteNoise)
+            return;
+
+        EnsureWhiteNoiseAudio();
+        if (whiteNoiseAudioSource == null)
+            return;
+
+        float targetAlpha = hasLimitedVisibility ? Mathf.Clamp01(screenWackyAlpha) : 0f;
+        float targetVolume = Mathf.SmoothStep(0f, whiteNoiseMaxVolume, targetAlpha);
+        float smoothing = 1f - Mathf.Exp(-whiteNoiseFadeSpeed * Time.deltaTime);
+        currentWhiteNoiseVolume = Mathf.Lerp(currentWhiteNoiseVolume, targetVolume, smoothing);
+        whiteNoiseAudioSource.volume = currentWhiteNoiseVolume;
+    }
+
+    private static AudioClip CreateWhiteNoiseClip()
+    {
+        const int sampleRate = 22050;
+        const float clipDuration = 2f;
+        const float amplitude = 0.2f;
+
+        int sampleCount = Mathf.CeilToInt(sampleRate * clipDuration);
+        AudioClip clip = AudioClip.Create("PlayerWhiteNoise", sampleCount, 1, sampleRate, false);
+        float[] samples = new float[sampleCount];
+        System.Random random = new System.Random(14393);
+
+        for (int i = 0; i < sampleCount; i++)
+            samples[i] = ((float)random.NextDouble() * 2f - 1f) * amplitude;
+
+        clip.SetData(samples, 0);
+        return clip;
+    }
+
     private void ApplyVisibilityVignette(Color fogColor, float intensity, float smoothness)
     {
         if (intensity <= 0f)
@@ -913,12 +1010,19 @@ public class SimpleFirstPersonController : MonoBehaviour
 
     private void KillPlayer()
     {
-        StartCoroutine(KillRoutine());
+        if (killRoutine != null)
+            return;
+
+        killRoutine = StartCoroutine(KillRoutine());
     }
-    IEnumerator KillRoutine()
+
+    private IEnumerator KillRoutine()
     {
-        imageAnime.Play("MakeBlack");
+        if (imageAnime != null)
+            imageAnime.Play("MakeBlack");
+
         yield return new WaitForSeconds(1.1f);
+        killRoutine = null;
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
 
@@ -936,4 +1040,15 @@ public class SimpleFirstPersonController : MonoBehaviour
         SceneManager.LoadScene("EndScreen");
     }
 
+    private void CancelPendingDeath()
+    {
+        if (killRoutine != null)
+        {
+            StopCoroutine(killRoutine);
+            killRoutine = null;
+        }
+
+        if (imageAnime != null)
+            imageAnime.Play("RemoveBlack");
+    }
 }
