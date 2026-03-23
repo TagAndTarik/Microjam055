@@ -107,7 +107,10 @@ public class PickupInteractable : MonoBehaviour, IInteractable
         MakeObjectDisappear?.Invoke();
         //PlayerManager.PlayerManagerInstance._disappearComponent = DisappearObject;
         if (socket.TryHold(this))
+        {
             outline?.SetOutlined(false);
+            ShowPickupMessage(interactor);
+        }
     }
 
     public bool PlaceAt(Transform targetTransform)
@@ -332,6 +335,18 @@ public class PickupInteractable : MonoBehaviour, IInteractable
         }
 
         return false;
+    }
+
+    private void ShowPickupMessage(Transform interactor)
+    {
+        WarmLightInteractable warmLight = GetComponent<WarmLightInteractable>();
+        if (warmLight == null)
+            warmLight = GetComponentInParent<WarmLightInteractable>();
+
+        if (warmLight == null)
+            warmLight = GetComponentInChildren<WarmLightInteractable>(true);
+
+        warmLight?.TryShowPickupMessage(interactor);
     }
 
     private static bool IsUnsetColor(Color color)
