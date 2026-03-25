@@ -30,6 +30,7 @@ public class LightsOffInteractable : MonoBehaviour, IInteractable
     [SerializeField] private Color playerVisibilityFogColor = new Color(0.018f, 0.02f, 0.027f, 1f);
     [SerializeField, Range(0f, 1f)] private float playerVisibilityVignetteIntensity = 0.24f;
     [SerializeField, Range(0.01f, 1f)] private float playerVisibilityVignetteSmoothness = 0.82f;
+    [SerializeField, Range(-4f, 0f)] private float playerVisibilityPostExposure = -1.75f;
     [SerializeField, TextArea] private string hoverMessage = "Sleep";
     [SerializeField, TextArea] private string postInteractMessage = "My lamp is in the attic";
     [SerializeField] private float postInteractMessageDuration = 4.5f;
@@ -190,7 +191,8 @@ public class LightsOffInteractable : MonoBehaviour, IInteractable
             playerVisibilityFogStartDistance,
             playerVisibilityFogColor,
             playerVisibilityVignetteIntensity,
-            playerVisibilityVignetteSmoothness);
+            playerVisibilityVignetteSmoothness,
+            playerVisibilityPostExposure);
     }
 
     private void ReplaceFrontDoorWithWall()
