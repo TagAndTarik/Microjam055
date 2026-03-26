@@ -4569,6 +4569,11 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 8581203047390346169, guid: 2f31c755d56a1f04c99079c171333c33, type: 3}
   m_PrefabInstance: {fileID: 875505740}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &568676766 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 3270216999867804263, guid: c7ad4b72248507644bb9d41ae4582616, type: 3}
+  m_PrefabInstance: {fileID: 747129388}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &574985554
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -6176,16 +6181,52 @@ PrefabInstance:
       propertyPath: m_Name
       value: Fence_4 (25)
       objectReference: {fileID: 0}
+    - target: {fileID: 6519743208751125053, guid: c7ad4b72248507644bb9d41ae4582616, type: 3}
+      propertyPath: m_Size.z
+      value: 11.065559
+      objectReference: {fileID: 0}
+    - target: {fileID: 6519743208751125053, guid: c7ad4b72248507644bb9d41ae4582616, type: 3}
+      propertyPath: m_Center.x
+      value: 0.3750005
+      objectReference: {fileID: 0}
+    - target: {fileID: 6519743208751125053, guid: c7ad4b72248507644bb9d41ae4582616, type: 3}
+      propertyPath: m_Center.z
+      value: -2.0294106
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 3270216999867804263, guid: c7ad4b72248507644bb9d41ae4582616, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 747129393}
   m_SourcePrefab: {fileID: 100100000, guid: c7ad4b72248507644bb9d41ae4582616, type: 3}
 --- !u!4 &747129389 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 2043886671343486329, guid: c7ad4b72248507644bb9d41ae4582616, type: 3}
   m_PrefabInstance: {fileID: 747129388}
   m_PrefabAsset: {fileID: 0}
+--- !u!65 &747129393
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 568676766}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 7.1949453, y: 1.3, z: 0.11000005}
+  m_Center: {x: 3.5474744, y: 0.65, z: 2.3300006}
 --- !u!1001 &750800420
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -7689,6 +7730,18 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.y
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 7686966335321174646, guid: 2f31c755d56a1f04c99079c171333c33, type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8577165118395691920, guid: 2f31c755d56a1f04c99079c171333c33, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.544
+      objectReference: {fileID: 0}
+    - target: {fileID: 8577165118395691920, guid: 2f31c755d56a1f04c99079c171333c33, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 1.384
+      objectReference: {fileID: 0}
     - target: {fileID: 8581203047926310814, guid: 2f31c755d56a1f04c99079c171333c33, type: 3}
       propertyPath: m_LocalPosition.x
       value: -8.48
@@ -7733,6 +7786,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: House1
       objectReference: {fileID: 0}
+    - target: {fileID: 8724041868907462890, guid: 2f31c755d56a1f04c99079c171333c33, type: 3}
+      propertyPath: m_Enabled
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects:
     - {fileID: 3845779622301290443, guid: 2f31c755d56a1f04c99079c171333c33, type: 3}
@@ -7740,6 +7797,8 @@ PrefabInstance:
     - {fileID: 248918395283336338, guid: 2f31c755d56a1f04c99079c171333c33, type: 3}
     - {fileID: 5605263791991706360, guid: 2f31c755d56a1f04c99079c171333c33, type: 3}
     - {fileID: 7166950823134828366, guid: 2f31c755d56a1f04c99079c171333c33, type: 3}
+    - {fileID: 7132507464155985434, guid: 2f31c755d56a1f04c99079c171333c33, type: 3}
+    - {fileID: 1723301851621673273, guid: 2f31c755d56a1f04c99079c171333c33, type: 3}
     m_AddedGameObjects:
     - targetCorrespondingSourceObject: {fileID: 8581203047926310814, guid: 2f31c755d56a1f04c99079c171333c33, type: 3}
       insertIndex: -1
@@ -12244,11 +12303,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5743769293485052913, guid: 8619cdcec390d884e9a1263632e29f2e, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 15.07193
+      value: 15.04
       objectReference: {fileID: 0}
     - target: {fileID: 5743769293485052913, guid: 8619cdcec390d884e9a1263632e29f2e, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0.587
+      value: 0.566
       objectReference: {fileID: 0}
     - target: {fileID: 5743769293485052913, guid: 8619cdcec390d884e9a1263632e29f2e, type: 3}
       propertyPath: m_LocalPosition.z
@@ -20166,6 +20225,18 @@ PrefabInstance:
       propertyPath: m_Name
       value: Fence_4 (38)
       objectReference: {fileID: 0}
+    - target: {fileID: 6519743208751125053, guid: c7ad4b72248507644bb9d41ae4582616, type: 3}
+      propertyPath: m_Size.z
+      value: 8.475336
+      objectReference: {fileID: 0}
+    - target: {fileID: 6519743208751125053, guid: c7ad4b72248507644bb9d41ae4582616, type: 3}
+      propertyPath: m_Center.x
+      value: 0.3750002
+      objectReference: {fileID: 0}
+    - target: {fileID: 6519743208751125053, guid: c7ad4b72248507644bb9d41ae4582616, type: 3}
+      propertyPath: m_Center.z
+      value: -0.7867392
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -20510,6 +20581,7 @@ MonoBehaviour:
   playerVisibilityFogColor: {r: 0.018, g: 0.02, b: 0.027, a: 1}
   playerVisibilityVignetteIntensity: 0.24
   playerVisibilityVignetteSmoothness: 0.82
+  playerVisibilityPostExposure: -1.75
   hoverMessage: Sleep
   postInteractMessage: My lamp is on the table there
   postInteractMessageDuration: 4.5

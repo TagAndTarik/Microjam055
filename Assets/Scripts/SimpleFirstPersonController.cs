@@ -413,6 +413,9 @@ public class SimpleFirstPersonController : MonoBehaviour
         move.y = verticalVelocity;
 
         controller.Move(move * Time.deltaTime);
+
+        // Falling Forever Check
+        if(transform.position.y < -15f ) KillPlayer();
     }
 
     private void UpdateViewBob()

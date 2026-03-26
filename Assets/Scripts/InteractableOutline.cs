@@ -6,7 +6,7 @@ public class InteractableOutline : MonoBehaviour
     [SerializeField] private MeshRenderer[] targetRenderers;
     private float outlineScale = 1.03f;
 
-    private static readonly Color OutlineColor = new Color(1f, 1f, 1f, 0.45f);
+    private static readonly Color OutlineColor = new Color(1f, 1f, 1f, .2f);
     private static Material sharedOutlineMaterial;
     private readonly List<GameObject> outlineObjects = new List<GameObject>();
 
