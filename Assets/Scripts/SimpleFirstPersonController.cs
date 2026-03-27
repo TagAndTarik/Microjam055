@@ -137,6 +137,7 @@ public class SimpleFirstPersonController : MonoBehaviour
     private float limitedVisibilityStartTime;
     private float limitedVisibilityVignetteIntensity;
     private float limitedVisibilityVignetteSmoothness;
+    private float limitedVisibilityPostExposure;
     private bool hasLimitedVisibility;
     private bool lastLampHeldState;
     private string activePlayerMessage = string.Empty;
@@ -149,6 +150,7 @@ public class SimpleFirstPersonController : MonoBehaviour
     private AudioClip runtimeWhiteNoiseClip;
     private float currentWhiteNoiseVolume;
     private Coroutine killRoutine;
+    private static Volume runtimeFallbackVolume;
 
     private void Awake()
     {
@@ -254,7 +256,8 @@ public class SimpleFirstPersonController : MonoBehaviour
         float fogStartDistance,
         Color fogColor,
         float vignetteIntensity = 0f,
-        float vignetteSmoothness = 0.85f)
+        float vignetteSmoothness = 0.85f,
+        float postExposure = 0f)
     {
         if (playerCamera == null)
             playerCamera = GetComponentInChildren<Camera>();
@@ -265,6 +268,7 @@ public class SimpleFirstPersonController : MonoBehaviour
         limitedVisibilityFogColor = fogColor;
         limitedVisibilityVignetteIntensity = vignetteIntensity;
         limitedVisibilityVignetteSmoothness = vignetteSmoothness;
+        limitedVisibilityPostExposure = Mathf.Min(0f, postExposure);
         limitedVisibilityStartTime = Time.time;
         hasLimitedVisibility = true;
         lastLampHeldState = IsLampHeld();
@@ -333,10 +337,11 @@ public class SimpleFirstPersonController : MonoBehaviour
         RenderSettings.fogStartDistance = fogStartDistance;
         RenderSettings.fogEndDistance = maxVisibleDistance;
 
-        ApplyVisibilityVignette(
+        ApplyVisibilityPostProcessing(
             limitedVisibilityFogColor,
             limitedVisibilityVignetteIntensity,
-            limitedVisibilityVignetteSmoothness);
+            limitedVisibilityVignetteSmoothness,
+            limitedVisibilityPostExposure);
     }
 
     private float GetVisibilityDecayMultiplier()
@@ -408,6 +413,9 @@ public class SimpleFirstPersonController : MonoBehaviour
         move.y = verticalVelocity;
 
         controller.Move(move * Time.deltaTime);
+
+        // Falling Forever Check
+        if(transform.position.y < -15f ) KillPlayer();
     }
 
     private void UpdateViewBob()
@@ -943,11 +951,8 @@ public class SimpleFirstPersonController : MonoBehaviour
         return clip;
     }
 
-    private void ApplyVisibilityVignette(Color fogColor, float intensity, float smoothness)
+    private void ApplyVisibilityPostProcessing(Color fogColor, float intensity, float smoothness, float postExposure)
     {
-        if (intensity <= 0f)
-            return;
-
         Volume targetVolume = ResolveGlobalVolume();
         if (targetVolume == null)
             return;
@@ -956,17 +961,30 @@ public class SimpleFirstPersonController : MonoBehaviour
         if (profile == null)
             return;
 
-        if (!profile.TryGet(out Vignette vignette))
-            vignette = profile.Add<Vignette>(true);
+        if (intensity > 0f)
+        {
+            if (!profile.TryGet(out Vignette vignette))
+                vignette = profile.Add<Vignette>(true);
 
-        if (vignette == null)
+            if (vignette != null)
+            {
+                vignette.active = true;
+                vignette.color.Override(fogColor);
+                vignette.intensity.Override(Mathf.Clamp01(intensity));
+                vignette.smoothness.Override(Mathf.Clamp(smoothness, 0.01f, 1f));
+                vignette.rounded.Override(true);
+            }
+        }
+
+        if (!profile.TryGet(out ColorAdjustments colorAdjustments))
+            colorAdjustments = profile.Add<ColorAdjustments>(true);
+
+        if (colorAdjustments == null)
             return;
 
-        vignette.active = true;
-        vignette.color.Override(fogColor);
-        vignette.intensity.Override(Mathf.Clamp01(intensity));
-        vignette.smoothness.Override(Mathf.Clamp(smoothness, 0.01f, 1f));
-        vignette.rounded.Override(true);
+        colorAdjustments.active = true;
+        colorAdjustments.colorFilter.Override(Color.white);
+        colorAdjustments.postExposure.Override(Mathf.Min(0f, postExposure));
     }
 
     private static Volume ResolveGlobalVolume()
@@ -979,7 +997,17 @@ public class SimpleFirstPersonController : MonoBehaviour
                 return volume;
         }
 
-        return null;
+        if (runtimeFallbackVolume == null)
+        {
+            GameObject volumeObject = new GameObject("Runtime Global Volume");
+            runtimeFallbackVolume = volumeObject.AddComponent<Volume>();
+            runtimeFallbackVolume.isGlobal = true;
+            runtimeFallbackVolume.priority = 1000f;
+            runtimeFallbackVolume.sharedProfile = ScriptableObject.CreateInstance<VolumeProfile>();
+            DontDestroyOnLoad(volumeObject);
+        }
+
+        return runtimeFallbackVolume;
     }
 
     private void UpdateShader()
